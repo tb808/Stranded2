@@ -2,8 +2,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   // GitHub Pages publishes this project at
-  // https://<username>.github.io/stranded2/.
-  base: "/stranded2/",
+  // https://<username>.github.io/Stranded2/.
+  base: "/Stranded2/",
   build: {
     target: "es2022",
     sourcemap: false,

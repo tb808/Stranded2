@@ -98,7 +98,7 @@ Der optimierte Produktionsbuild liegt in `dist/`. `file://` wird wegen ES-Module
 
 ### GitHub Pages
 
-Dieses Repository ist für die Projektseite `https://<GitHub-Benutzername>.github.io/stranded2/` vorkonfiguriert. Jeder Push auf `main` baut das Spiel mit GitHub Actions und veröffentlicht ausschließlich den Inhalt von `dist/`.
+Dieses Repository ist für die Projektseite `https://<GitHub-Benutzername>.github.io/Stranded2/` vorkonfiguriert. Jeder Push auf `main` baut das Spiel mit GitHub Actions und veröffentlicht ausschließlich den Inhalt von `dist/`.
 
 Nach dem ersten Push muss unter **Settings → Pages → Build and deployment → Source** einmalig **GitHub Actions** ausgewählt werden. Der Status des Deployments erscheint anschließend im Tab **Actions** und die fertige URL unter **Settings → Pages**.
 
