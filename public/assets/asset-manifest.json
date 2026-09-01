@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "provider": "Kenney",
+  "license": "CC0-1.0",
+  "basePath": "./third-party/kenney",
+  "pathResolution": "basePath is relative to this manifest URL; asset and license paths are relative to basePath",
+  "packages": [
+    {
+      "id": "nature-kit",
+      "name": "Nature Kit",
+      "version": "2.1",
+      "source": "https://kenney.nl/assets/nature-kit",
+      "licenseFile": "nature-kit/LICENSE.txt",
+      "selectedBytes": 317200,
+      "assets": [
+        { "id": "nature.flower-red", "kind": "model/gltf-binary", "path": "nature-kit/models/flower_redB.glb" },
+        { "id": "nature.flower-yellow", "kind": "model/gltf-binary", "path": "nature-kit/models/flower_yellowC.glb" },
+        { "id": "nature.grass", "kind": "model/gltf-binary", "path": "nature-kit/models/grass.glb" },
+        { "id": "nature.grass-leafs", "kind": "model/gltf-binary", "path": "nature-kit/models/grass_leafs.glb" },
+        { "id": "nature.grass-leafs-large", "kind": "model/gltf-binary", "path": "nature-kit/models/grass_leafsLarge.glb" },
+        { "id": "nature.grass-large", "kind": "model/gltf-binary", "path": "nature-kit/models/grass_large.glb" },
+        { "id": "nature.lily-large", "kind": "model/gltf-binary", "path": "nature-kit/models/lily_large.glb" },
+        { "id": "nature.log", "kind": "model/gltf-binary", "path": "nature-kit/models/log.glb" },
+        { "id": "nature.river-straight", "kind": "model/gltf-binary", "path": "nature-kit/models/ground_riverStraight.glb" },
+        { "id": "nature.river-rocks", "kind": "model/gltf-binary", "path": "nature-kit/models/ground_riverRocks.glb" },
+        { "id": "nature.mushroom-red-group", "kind": "model/gltf-binary", "path": "nature-kit/models/mushroom_redGroup.glb" },
+        { "id": "nature.mushroom-tan-group", "kind": "model/gltf-binary", "path": "nature-kit/models/mushroom_tanGroup.glb" },
+        { "id": "nature.bush-detailed", "kind": "model/gltf-binary", "path": "nature-kit/models/plant_bushDetailed.glb" },
+        { "id": "nature.bush-large", "kind": "model/gltf-binary", "path": "nature-kit/models/plant_bushLarge.glb" },
+        { "id": "nature.plant-flat-short", "kind": "model/gltf-binary", "path": "nature-kit/models/plant_flatShort.glb" },
+        { "id": "nature.plant-flat-tall", "kind": "model/gltf-binary", "path": "nature-kit/models/plant_flatTall.glb" },
+        { "id": "nature.rock-large", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_largeA.glb" },
+        { "id": "nature.rock-large-b", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_largeB.glb" },
+        { "id": "nature.rock-large-c", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_largeC.glb" },
+        { "id": "nature.rock-small", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_smallA.glb" },
+        { "id": "nature.rock-small-b", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_smallB.glb" },
+        { "id": "nature.rock-small-flat", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_smallFlatB.glb" },
+        { "id": "nature.rock-tall-c", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_tallC.glb" },
+        { "id": "nature.rock-tall-f", "kind": "model/gltf-binary", "path": "nature-kit/models/rock_tallF.glb" },
+        { "id": "nature.statue-column-damaged", "kind": "model/gltf-binary", "path": "nature-kit/models/statue_columnDamaged.glb" },
+        { "id": "nature.statue-head", "kind": "model/gltf-binary", "path": "nature-kit/models/statue_head.glb" },
+        { "id": "nature.statue-obelisk", "kind": "model/gltf-binary", "path": "nature-kit/models/statue_obelisk.glb" },
+        { "id": "nature.stump-old-tall", "kind": "model/gltf-binary", "path": "nature-kit/models/stump_oldTall.glb" },
+        { "id": "nature.tree-default", "kind": "model/gltf-binary", "path": "nature-kit/models/tree_default.glb" },
+        { "id": "nature.palm-bent", "kind": "model/gltf-binary", "path": "nature-kit/models/tree_palmBend.glb" },
+        { "id": "nature.palm-detailed-short", "kind": "model/gltf-binary", "path": "nature-kit/models/tree_palmDetailedShort.glb" },
+        { "id": "nature.palm-detailed-tall", "kind": "model/gltf-binary", "path": "nature-kit/models/tree_palmDetailedTall.glb" }
+      ]
+    },
+    {
+      "id": "survival-kit",
+      "name": "Survival Kit",
+      "version": "2.0",
+      "source": "https://kenney.nl/assets/survival-kit",
+      "licenseFile": "survival-kit/LICENSE.txt",
+      "selectedBytes": 403884,
+      "assets": [
+        { "id": "survival.barrel", "kind": "model/gltf-binary", "path": "survival-kit/models/barrel.glb" },
+        { "id": "survival.bedroll", "kind": "model/gltf-binary", "path": "survival-kit/models/bedroll.glb" },
+        { "id": "survival.bedroll-frame", "kind": "model/gltf-binary", "path": "survival-kit/models/bedroll-frame.glb" },
+        { "id": "survival.bottle-large", "kind": "model/gltf-binary", "path": "survival-kit/models/bottle-large.glb" },
+        { "id": "survival.box-large", "kind": "model/gltf-binary", "path": "survival-kit/models/box-large.glb" },
+        { "id": "survival.bucket", "kind": "model/gltf-binary", "path": "survival-kit/models/bucket.glb" },
+        { "id": "survival.campfire-fishing-stand", "kind": "model/gltf-binary", "path": "survival-kit/models/campfire-fishing-stand.glb" },
+        { "id": "survival.campfire-pit", "kind": "model/gltf-binary", "path": "survival-kit/models/campfire-pit.glb" },
+        { "id": "survival.chest", "kind": "model/gltf-binary", "path": "survival-kit/models/chest.glb" },
+        { "id": "survival.colormap", "kind": "image/png", "path": "survival-kit/models/Textures/colormap.png" },
+        { "id": "survival.fence-fortified", "kind": "model/gltf-binary", "path": "survival-kit/models/fence-fortified.glb" },
+        { "id": "survival.fence-doorway", "kind": "model/gltf-binary", "path": "survival-kit/models/fence-doorway.glb" },
+        { "id": "survival.fish", "kind": "model/gltf-binary", "path": "survival-kit/models/fish.glb" },
+        { "id": "survival.resource-planks", "kind": "model/gltf-binary", "path": "survival-kit/models/resource-planks.glb" },
+        { "id": "survival.resource-wood", "kind": "model/gltf-binary", "path": "survival-kit/models/resource-wood.glb" },
+        { "id": "survival.signpost", "kind": "model/gltf-binary", "path": "survival-kit/models/signpost.glb" },
+        { "id": "survival.structure-floor", "kind": "model/gltf-binary", "path": "survival-kit/models/structure-floor.glb" },
+        { "id": "survival.structure", "kind": "model/gltf-binary", "path": "survival-kit/models/structure.glb" },
+        { "id": "survival.structure-roof", "kind": "model/gltf-binary", "path": "survival-kit/models/structure-roof.glb" },
+        { "id": "survival.tent-canvas", "kind": "model/gltf-binary", "path": "survival-kit/models/tent-canvas.glb" },
+        { "id": "survival.tent", "kind": "model/gltf-binary", "path": "survival-kit/models/tent.glb" },
+        { "id": "survival.tool-axe", "kind": "model/gltf-binary", "path": "survival-kit/models/tool-axe.glb" },
+        { "id": "survival.tool-hammer", "kind": "model/gltf-binary", "path": "survival-kit/models/tool-hammer.glb" },
+        { "id": "survival.workbench-anvil", "kind": "model/gltf-binary", "path": "survival-kit/models/workbench-anvil.glb" },
+        { "id": "survival.workbench", "kind": "model/gltf-binary", "path": "survival-kit/models/workbench.glb" }
+      ]
+    },
+    {
+      "id": "food-kit",
+      "name": "Food Kit",
+      "version": "2.0",
+      "source": "https://kenney.nl/assets/food-kit",
+      "licenseFile": "food-kit/LICENSE.txt",
+      "selectedBytes": 31191,
+      "assets": [
+        { "id": "food.meat-raw", "kind": "model/gltf-binary", "path": "food-kit/models/meat-raw.glb" },
+        { "id": "food.meat-cooked", "kind": "model/gltf-binary", "path": "food-kit/models/meat-cooked.glb" },
+        { "id": "food.colormap", "kind": "image/png", "path": "food-kit/models/Textures/colormap.png" }
+      ]
+    },
+    {
+      "id": "cube-world-kit",
+      "name": "Cube World Kit",
+      "version": "1.0",
+      "source": "https://quaternius.com/packs/cubeworldkit.html",
+      "licenseFile": "../quaternius/cube-world-kit/LICENSE.txt",
+      "selectedBytes": 428372,
+      "assets": [
+        { "id": "animal.wild-boar", "kind": "model/gltf-binary", "path": "../quaternius/cube-world-kit/models/wild-boar.glb" },
+        { "id": "animal.chicken", "kind": "model/gltf-binary", "path": "../quaternius/cube-world-kit/models/chicken.glb" }
+      ]
+    },
+    {
+      "id": "tropical-wildlife",
+      "name": "Tropical Wildlife Selection",
+      "version": "1.0",
+      "source": "https://poly.pizza/",
+      "licenseFile": "../poly-pizza/tropical-wildlife/LICENSE.txt",
+      "selectedBytes": 206964,
+      "assets": [
+        { "id": "animal.bird", "kind": "model/gltf-binary", "path": "../poly-pizza/tropical-wildlife/models/bird-quaternius.glb" },
+        { "id": "animal.turtle", "kind": "model/gltf-binary", "path": "../poly-pizza/tropical-wildlife/models/turtle-jeremy.glb" },
+        { "id": "animal.crocodile", "kind": "model/gltf-binary", "path": "../poly-pizza/tropical-wildlife/models/crocodile-jeremy.glb" }
+      ]
+    },
+    {
+      "id": "volcano-landmark",
+      "name": "Volcano by Poly by Google",
+      "version": "1.0",
+      "source": "https://poly.pizza/m/dwSigTeSMCo",
+      "licenseFile": "../poly-pizza/volcano/LICENSE.txt",
+      "selectedBytes": 232396,
+      "assets": [
+        { "id": "environment.volcano", "kind": "model/gltf-binary", "path": "../poly-pizza/volcano/models/volcano-poly-by-google.glb" }
+      ]
+    },
+    {
+      "id": "impact-sounds",
+      "name": "Impact Sounds",
+      "version": "1.0",
+      "source": "https://kenney.nl/assets/impact-sounds",
+      "licenseFile": "impact-sounds/LICENSE.txt",
+      "selectedBytes": 20350,
+      "assets": [
+        { "id": "sfx.footstep-grass-1", "kind": "audio/ogg", "path": "impact-sounds/audio/footstep_grass_000.ogg" },
+        { "id": "sfx.impact-generic-light", "kind": "audio/ogg", "path": "impact-sounds/audio/impactGeneric_light_000.ogg" },
+        { "id": "sfx.impact-wood-heavy", "kind": "audio/ogg", "path": "impact-sounds/audio/impactWood_heavy_000.ogg" }
+      ]
+    },
+    {
+      "id": "input-prompts",
+      "name": "Input Prompts",
+      "version": "1.5a",
+      "source": "https://kenney.nl/assets/input-prompts",
+      "licenseFile": "input-prompts/LICENSE.txt",
+      "selectedBytes": 1181,
+      "assets": [
+        { "id": "input.keyboard-e", "kind": "image/svg+xml", "path": "input-prompts/icons/keyboard_e.svg" },
+        { "id": "input.mouse-left", "kind": "image/svg+xml", "path": "input-prompts/icons/mouse_left.svg" }
+      ]
+    },
+    {
+      "id": "interface-sounds",
+      "name": "Interface Sounds",
+      "version": "1.0",
+      "source": "https://kenney.nl/assets/interface-sounds",
+      "licenseFile": "interface-sounds/LICENSE.txt",
+      "selectedBytes": 8968,
+      "assets": [
+        { "id": "ui.confirm", "kind": "audio/ogg", "path": "interface-sounds/audio/confirmation_001.ogg" }
+      ]
+    }
+  ]
+}

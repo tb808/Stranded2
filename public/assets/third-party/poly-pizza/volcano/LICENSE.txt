@@ -1,0 +1,13 @@
+Volcano
+
+Title: Volcano
+Creator: Poly by Google
+Source: https://poly.pizza/m/dwSigTeSMCo
+Original publication: 22 October 2017
+Format distributed by Poly Pizza: glTF/GLB
+
+License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/
+
+No changes were made to the model geometry or embedded materials. The model is
+scaled, rotated and lit at runtime to match the procedural island terrain.

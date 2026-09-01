@@ -1,0 +1,18 @@
+Tropical Wildlife Selection
+
+Bird by Quaternius
+Source: https://poly.pizza/m/gYYC0gYMnw
+License: Creative Commons Zero (CC0) 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Turtle by jeremy
+Source: https://poly.pizza/m/0Sylqo1dCfu
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Crocodile by jeremy
+Source: https://poly.pizza/m/fnUp2MrGjmr
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Models were distributed through Poly Pizza and converted there to glTF/GLB.
