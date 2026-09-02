@@ -46,6 +46,8 @@ Schwere körperliche Treffer durch Wildschweine, Krokodile und Haie verursachen 
 
 Verderbliche Nahrung besitzt pro Stapel eine sichtbare Resthaltbarkeit und altert sowohl im Rucksack als auch in Truhen und während des Schlafs. Krabben, rohes Fleisch und roher Fisch halten einen Spieltag; gekochte Nahrung und Mangos zwei Spieltage; Räucherfleisch fünf Spieltage. Kokosnüsse bleiben durch ihre harte Schale haltbar. Abgelaufene Vorräte werden zu ungenießbarer `Verdorbener Nahrung`. Beim Umlagern und Speichern bleibt die jeweilige Resthaltbarkeit erhalten.
 
+Der neue Müdigkeitswert steigt während des Wachseins innerhalb von zwei Spieltagen von 0 auf 100 Prozent. Ab 50 Prozent regeneriert Ausdauer zunehmend langsamer und die Spielfigur bewegt sich schwerfälliger; ab 80 Prozent kann sie nicht mehr sprinten. Bei 100 Prozent verursacht völlige Erschöpfung fortlaufend Gesundheitsschaden. Eine Nacht im Bett setzt die Müdigkeit auf null, füllt die Ausdauer und überspringt wie bisher bis zum Morgen; Hunger, Durst, Gift, Blutung und Nahrungsverderb laufen währenddessen weiter. Alte Spielstände ohne Müdigkeitswert starten ausgeruht.
+
 Auf der Blüteninsel wachsen sechzehn deutlich erkennbare Duftblüten, die nach zwei Spieltagen erneut austreiben. Drei Duftblüten, ein Mangroven-Heilkraut und eine Kokosschale ergeben ein Blütentonikum. Es heilt 30 Gesundheit und stellt die gesamte Ausdauer wieder her; damit verbindet das Rezept die friedliche Wieseninsel mit der riskanten Mangrovenbucht.
 
 Die Mondklippen bilden eine windige Erkundungsprüfung. Auf hohen und exponierten Graten entzieht Klippenwind fortlaufend Ausdauer; die Stärke wird im HUD angezeigt. Drei Windsignale sind über beide Klippenarme verteilt und benötigen jeweils zwei Stöcke sowie einen Stoff zum Entzünden. Erst wenn alle drei sichtbar brennen, öffnet sich die Windgrat-Kiste mit einem großen Vorrat an Stoff, Metallschrott und Räucherfleisch.
@@ -58,7 +60,7 @@ Regen und Gewitter kühlen die Spielfigur aus. Ohne angezogenes Schutzhemd oder 
 
 Ein vollständiger Zeitzyklus dauert sieben Echtzeit-Minuten: fünf Minuten Tageslicht und zwei Minuten Nacht.
 
-Eine dauerhaft sichtbare Archipelkarte im HUD zeigt Lage und Größe aller elf vorhandenen Inseln. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
+Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt Lage und Größe aller elf vorhandenen Inseln. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
 
 ## Starten
 
@@ -79,6 +81,7 @@ Vite startet die Entwicklungsversion standardmäßig unter `http://127.0.0.1:417
 - Beim Schwimmen folgt `W/S` der Blickrichtung: nach oben schauen lässt dich aufsteigen, nach unten schauen lässt dich abtauchen
 - `E`: aufnehmen, benutzen, Floß betreten/verlassen
 - `1`–`4`: Schnellzugriff, `Tab`: Inventar, `C`: Crafting, `B`: Bauen
+- `M`: Karte hervorholen oder wieder einstecken
 - `R`: Bauvorschau drehen, `Esc`: Pause
 
 ## Qualitätssicherung

@@ -29,6 +29,7 @@ describe('survival model', () => {
       fastSwimStaminaDrainPerSecond: 12,
       staminaRegenPerSecond: 15,
       staminaRegenDelaySeconds: 1,
+      fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
     });
     expect(DAYLIGHT_DURATION_SECONDS).toBe(300);
     expect(NIGHT_DURATION_SECONDS).toBe(120);
@@ -117,6 +118,25 @@ describe('survival model', () => {
     });
     expect(cold.maxStamina).toBe(35);
     expect(cold.stamina).toBe(35);
+  });
+
+  it('builds fatigue over two days without sleep', () => {
+    const afterOneDay = advanceSurvival(state({ hunger: 100, thirst: 100 }), DAY_LENGTH_SECONDS);
+    expect(afterOneDay.fatigue).toBeCloseTo(50);
+    const afterTwoDays = advanceSurvival(afterOneDay, DAY_LENGTH_SECONDS);
+    expect(afterTwoDays.fatigue).toBe(100);
+  });
+
+  it('regenerates stamina more slowly while exhausted', () => {
+    const rested = advanceSurvival(state({ stamina: 0, fatigue: 0 }), 1);
+    const exhausted = advanceSurvival(state({ stamina: 0, fatigue: 100 }), 1);
+    expect(rested.stamina).toBe(15);
+    expect(exhausted.stamina).toBeCloseTo(5.25);
+  });
+
+  it('damages health at maximum fatigue until the player sleeps', () => {
+    const exhausted = advanceSurvival(state({ fatigue: 100 }), 10);
+    expect(exhausted.health).toBeCloseTo(99.2);
   });
 
   it('wraps the thirty-minute day clock', () => {

@@ -182,8 +182,10 @@ function isLoot(value: unknown): boolean {
 function isSurvival(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const maxStamina = value.maxStamina === undefined ? 100 : value.maxStamina;
+  const fatigue = value.fatigue === undefined ? 0 : value.fatigue;
   return [value.health, value.hunger, value.thirst, value.stamina, value.oxygen]
     .every((entry) => isRangeNumber(entry, 0, 100)) &&
+    isRangeNumber(fatigue, 0, 100) &&
     isRangeNumber(maxStamina, 35, 100) &&
     (value.stamina as number) <= (maxStamina as number) &&
     isRangeNumber(value.staminaRegenDelayRemaining, 0, 1) &&

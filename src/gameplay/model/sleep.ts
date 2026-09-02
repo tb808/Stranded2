@@ -47,6 +47,7 @@ export function sleepUntilMorning(state: SurvivalState): SleepResult {
       hunger: Math.max(0, state.hunger - 8),
       thirst: Math.max(0, state.thirst - 12),
       stamina: state.maxStamina,
+      fatigue: 0,
       staminaRegenDelayRemaining: 0,
       dayElapsedSeconds: 0,
     },

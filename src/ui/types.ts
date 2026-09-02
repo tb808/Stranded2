@@ -78,6 +78,7 @@ export interface MapIslandViewModel {
 }
 
 export interface HudMapViewModel {
+  visible: boolean;
   playerX: number;
   playerZ: number;
   headingDegrees: number;
@@ -91,6 +92,7 @@ export interface HudViewModel {
   thirst: SurvivalMetricViewModel;
   stamina: SurvivalMetricViewModel;
   oxygen: SurvivalMetricViewModel;
+  fatigue: SurvivalMetricViewModel;
   headingDegrees: number;
   locationLabel?: string;
   prompt?: InteractionPromptViewModel;

@@ -9,6 +9,7 @@ export const SURVIVAL_LIMITS = {
   thirst: 100,
   stamina: 100,
   oxygen: 100,
+  fatigue: 100,
 } as const;
 
 export const SURVIVAL_START = {
@@ -17,6 +18,7 @@ export const SURVIVAL_START = {
   thirst: 65,
   stamina: 100,
   oxygen: 100,
+  fatigue: 0,
 } as const;
 
 export const SURVIVAL_RATES = {
@@ -32,6 +34,8 @@ export const SURVIVAL_RATES = {
   staminaRegenDelaySeconds: 1,
   coldMaxStaminaDrainPerSecond: 0.08,
   warmMaxStaminaRecoveryPerSecond: 0.15,
+  fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
+  exhaustedHealthDamagePerSecond: 0.08,
 } as const;
 
 export const MINIMUM_COLD_MAX_STAMINA = 35;
@@ -48,6 +52,7 @@ export interface SurvivalVitals {
 
 export interface SurvivalState extends SurvivalVitals {
   readonly maxStamina: number;
+  readonly fatigue: number;
   readonly staminaRegenDelayRemaining: number;
   readonly dayElapsedSeconds: number;
 }
@@ -96,11 +101,13 @@ export function advanceSurvival(
   const oxygen = activity.isUnderwater
     ? drain(state.oxygen, SURVIVAL_RATES.underwaterOxygenDrainPerSecond, deltaSeconds)
     : { value: SURVIVAL_LIMITS.oxygen, secondsAtZero: 0 };
+  const fatigue = fill(state.fatigue, SURVIVAL_RATES.fatigueGainPerSecond, deltaSeconds);
 
   const healthDamage =
     hunger.secondsAtZero * SURVIVAL_RATES.starvationDamagePerSecond +
     thirst.secondsAtZero * SURVIVAL_RATES.dehydrationDamagePerSecond +
     oxygen.secondsAtZero * SURVIVAL_RATES.drowningDamagePerSecond;
+  const exhaustionDamage = fatigue.secondsAtMaximum * SURVIVAL_RATES.exhaustedHealthDamagePerSecond;
 
   const maxStamina = activity.isCold
     ? clamp(
@@ -113,15 +120,16 @@ export function advanceSurvival(
         MINIMUM_COLD_MAX_STAMINA,
         SURVIVAL_LIMITS.stamina,
       );
-  const stamina = advanceStamina(state, activity.movement, deltaSeconds, maxStamina);
+  const stamina = advanceStamina(state, activity.movement, deltaSeconds, maxStamina, fatigue.value);
 
   return {
-    health: clamp(state.health - healthDamage, 0, SURVIVAL_LIMITS.health),
+    health: clamp(state.health - healthDamage - exhaustionDamage, 0, SURVIVAL_LIMITS.health),
     hunger: hunger.value,
     thirst: thirst.value,
     stamina: stamina.value,
     maxStamina,
     oxygen: oxygen.value,
+    fatigue: fatigue.value,
     staminaRegenDelayRemaining: stamina.regenDelayRemaining,
     dayElapsedSeconds: (state.dayElapsedSeconds + deltaSeconds) % DAY_LENGTH_SECONDS,
   };
@@ -132,6 +140,7 @@ function advanceStamina(
   movement: MovementActivity,
   deltaSeconds: number,
   maxStamina: number,
+  fatigue: number,
 ): { readonly value: number; readonly regenDelayRemaining: number } {
   const drainRate =
     movement === 'sprint'
@@ -151,11 +160,24 @@ function advanceStamina(
   const regenSeconds = Math.max(0, deltaSeconds - state.staminaRegenDelayRemaining);
   return {
     value: clamp(
-      state.stamina + regenSeconds * SURVIVAL_RATES.staminaRegenPerSecond,
+      state.stamina + regenSeconds * SURVIVAL_RATES.staminaRegenPerSecond * fatigueStaminaRegenMultiplier(fatigue),
       0,
       maxStamina,
     ),
     regenDelayRemaining,
+  };
+}
+
+function fatigueStaminaRegenMultiplier(fatigue: number): number {
+  if (fatigue <= 50) return 1;
+  return 1 - ((fatigue - 50) / 50) * 0.65;
+}
+
+function fill(value: number, rate: number, deltaSeconds: number): { readonly value: number; readonly secondsAtMaximum: number } {
+  const secondsUntilMaximum = rate === 0 ? Number.POSITIVE_INFINITY : (100 - value) / rate;
+  return {
+    value: clamp(value + rate * deltaSeconds, 0, 100),
+    secondsAtMaximum: Math.max(0, deltaSeconds - secondsUntilMaximum),
   };
 }
 

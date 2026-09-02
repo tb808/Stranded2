@@ -34,6 +34,8 @@ declare global {
       drinkBrackwater(): void;
       poison(): void;
       spoilFood(seconds: number): void;
+      setFatigue(value: number): void;
+      toggleMap(): boolean;
     };
   }
 }

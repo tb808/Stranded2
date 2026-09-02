@@ -124,6 +124,7 @@ const BRACKWATER_SICKNESS_DAMAGE_PER_SECOND = 0.3;
 const BRACKWATER_SICKNESS_THIRST_MULTIPLIER = 2.4;
 
 type WarmthSource = "clothing" | "fire" | null;
+type FatigueLevel = "rested" | "tired" | "exhausted";
 
 export class GameApp {
   private readonly renderer: WebGLRenderer;
@@ -162,6 +163,7 @@ export class GameApp {
   private staticRenderAccumulator = 0;
   private spawnPoint: Vec3Like = { x: -8, y: 3, z: 0 };
   private onRaft = false;
+  private mapOpen = false;
   private panelOpen: UiPanel | null = null;
   private activeChestId: string | null = null;
   private pointerWasLocked = false;
@@ -183,6 +185,7 @@ export class GameApp {
   private poisonCausedDeath = false;
   private isBleeding = false;
   private bleedingCausedDeath = false;
+  private previousFatigueLevel: FatigueLevel | null = null;
   private toolViewMoving = false;
   private currentIslandId: IslandId | null = null;
   private lastStorageOperation: "load" | "save" = "save";
@@ -373,6 +376,7 @@ export class GameApp {
     this.poisonCausedDeath = false;
     this.isBleeding = false;
     this.bleedingCausedDeath = false;
+    this.previousFatigueLevel = null;
     this.weatherOverride = null;
     this.weather = getWeatherState(1, 0);
     this.previousWeatherKind = this.weather.kind;
@@ -381,6 +385,7 @@ export class GameApp {
     this.yaw = -Math.PI / 2;
     this.pitch = 0;
     this.onRaft = false;
+    this.mapOpen = false;
     this.activeChestId = null;
     this.selectedBuild = null;
     this.autosaveAccumulator = 0;
@@ -389,7 +394,7 @@ export class GameApp {
     this.spawnPoint = this.defaultSpawn();
     this.physics?.setPlayerPosition(this.spawnPoint);
     await this.beginPlaying();
-    this.ui.addToast({ text: "Du bist gestrandet. Sammle Fasern, Steine und Stöcke.", tone: "info", durationMs: 7_000 });
+    this.ui.addToast({ text: "Du bist gestrandet. Mit M holst du deine Karte hervor.", tone: "info", durationMs: 7_000 });
   }
 
   private async continueGame(): Promise<void> {
@@ -426,6 +431,7 @@ export class GameApp {
       this.world = null;
       this.physics = null;
       this.onRaft = false;
+      this.mapOpen = false;
       const { RapierPhysicsWorld } = await import("../physics/RapierPhysicsWorld");
       this.physics = new RapierPhysicsWorld();
       await this.physics.initialize();
@@ -484,6 +490,10 @@ export class GameApp {
     this.pitch = clamp(this.pitch - input.lookDeltaY, -1.45, 1.45);
 
     if (input.pressed.has("inventory")) this.ui.openPanel("inventory");
+    if (input.pressed.has("map")) {
+      this.mapOpen = !this.mapOpen;
+      this.refreshUi();
+    }
     if (input.pressed.has("rotate") && this.selectedBuild) {
       this.buildRotation += this.selectedBuild.startsWith("hut_") ? Math.PI / 2 : Math.PI / 8;
     }
@@ -507,7 +517,7 @@ export class GameApp {
     } else {
       physics.movePlayer(movement.motion, dt);
       if (input.pressed.has("interact")) this.interact();
-      if (input.pressed.has("attack")) {
+      if (input.pressed.has("attack") && !this.mapOpen) {
         this.toolView.triggerUse();
         if (this.selectedBuild) this.placeSelectedBuild();
         else this.attack();
@@ -546,6 +556,7 @@ export class GameApp {
       thirstDrainMultiplier: weatherThirstMultiplier * volcanicThirstMultiplier * (this.brackwaterSicknessSeconds > 0 ? BRACKWATER_SICKNESS_THIRST_MULTIPLIER : 1),
       isCold: this.isCold,
     });
+    this.notifyFatigueTransition();
     if (cliffWind > 0 && !this.underwater) this.patchVitals({
       stamina: Math.max(0, this.survival.stamina - dt * (cliffWind === 2 ? 4.5 : 2)),
       staminaRegenDelayRemaining: Math.max(this.survival.staminaRegenDelayRemaining, 0.35),
@@ -648,7 +659,7 @@ export class GameApp {
     }
     this.camera.rotation.set(this.pitch, this.yaw, 0, "YXZ");
     this.updateBuildGhost();
-    const heldItem = this.state === "playing" && !this.panelOpen ? this.heldItemId() : null;
+    const heldItem = this.state === "playing" && !this.panelOpen && !this.mapOpen ? this.heldItemId() : null;
     this.toolView.update(heldItem, elapsed, this.toolViewMoving, this.settings.reducedMotion);
     this.renderer.render(world.scene, this.camera);
     this.toolView.render(this.renderer);
@@ -666,8 +677,9 @@ export class GameApp {
     const forwardAxis = (input.held.has("forward") ? 1 : 0) - (input.held.has("backward") ? 1 : 0);
     const rightAxis = (input.held.has("right") ? 1 : 0) - (input.held.has("left") ? 1 : 0);
     const hasMovementInput = forwardAxis !== 0 || rightAxis !== 0;
-    const sprinting = input.held.has("sprint") && this.survival.stamina > 0 && hasMovementInput;
-    const speed = swimming ? (sprinting ? 3.5 : 2.35) : sprinting ? 6.4 : 4.1;
+    const sprinting = input.held.has("sprint") && this.survival.stamina > 0 && this.survival.fatigue < 80 && hasMovementInput;
+    const fatigueSpeedMultiplier = this.survival.fatigue >= 80 ? 0.7 : this.survival.fatigue >= 50 ? 0.85 : 1;
+    const speed = (swimming ? (sprinting ? 3.5 : 2.35) : sprinting ? 6.4 : 4.1) * fatigueSpeedMultiplier;
     let vertical = 0;
     if (swimming) {
       const buoyancy = clamp((0.55 - (this.physics?.getPlayerPosition().y ?? 0.55)) * 2.2, -1.2, 1.2);
@@ -808,11 +820,12 @@ export class GameApp {
       if (result.slept) {
         const skippedSeconds = DAY_LENGTH_SECONDS - this.survival.dayElapsedSeconds;
         this.survival = result.state;
+        this.previousFatigueLevel = "rested";
         this.advancePoisonCondition(skippedSeconds);
         this.advanceBleedingCondition(skippedSeconds);
         this.advanceFoodSpoilage(skippedSeconds);
         this.day += 1;
-        this.ui.addToast({ text: "Du schläfst bis zum Morgen.", tone: "success" });
+        this.ui.addToast({ text: "Du schläfst bis zum Morgen und bist wieder vollständig erholt.", tone: "success" });
         void this.saveGame(false);
       } else {
         this.ui.addToast({ text: "Du kannst das Bett erst am Abend oder in der Nacht benutzen.", tone: "info" });
@@ -1374,6 +1387,7 @@ export class GameApp {
     if (!physics || !world) return;
     this.state = "dead";
     this.onRaft = false;
+    this.mapOpen = false;
     physics.setPlayerEnabled(false);
     const loot = this.inventory.stacks.map((stack) => ({ itemId: stack.itemId, count: stack.quantity }));
     if (loot.length > 0) world.createDeathPack(physics.getPlayerPosition(), loot);
@@ -1393,12 +1407,15 @@ export class GameApp {
           ? "Verhungert"
           : this.survival.oxygen <= 0
             ? "Ertrunken"
+            : this.survival.fatigue >= 100
+              ? "An völliger Erschöpfung gestorben"
             : "Den Gefahren der Inseln erlegen";
     this.brackwaterSicknessSeconds = 0;
     this.poisonSecondsRemaining = 0;
     this.poisonCausedDeath = false;
     this.isBleeding = false;
     this.bleedingCausedDeath = false;
+    this.previousFatigueLevel = null;
     this.exitPointerLock();
     this.ui.showDeath({
       cause: deathCause,
@@ -1419,6 +1436,8 @@ export class GameApp {
     this.poisonCausedDeath = false;
     this.isBleeding = false;
     this.bleedingCausedDeath = false;
+    this.previousFatigueLevel = null;
+    this.mapOpen = false;
     this.physics.setPlayerEnabled(true);
     this.physics.setPlayerPosition(this.spawnPoint);
     this.state = "playing";
@@ -1573,6 +1592,7 @@ export class GameApp {
   private restoreSave(save: RuntimeSaveV1): void {
     if (!this.physics || !this.world) return;
     this.onRaft = false;
+    this.mapOpen = false;
     this.activeChestId = null;
     this.physics.setPlayerEnabled(true);
     this.equippedShirt = Boolean(save.player.equipment?.wovenShirt);
@@ -1582,12 +1602,15 @@ export class GameApp {
     this.poisonCausedDeath = false;
     this.isBleeding = save.player.conditions?.isBleeding ?? false;
     this.bleedingCausedDeath = false;
+    this.previousFatigueLevel = null;
     this.foodSpoilageAccumulator = 0;
     this.inventory = new Inventory(this.equippedBackpack ? BACKPACK_INVENTORY_SLOTS : BASE_INVENTORY_SLOTS, save.player.inventory);
     const savedMaxStamina = (save.player.survival as Partial<SurvivalState>).maxStamina ?? 100;
+    const savedFatigue = (save.player.survival as Partial<SurvivalState>).fatigue ?? 0;
     this.survival = {
       ...save.player.survival,
       maxStamina: savedMaxStamina,
+      fatigue: savedFatigue,
       stamina: Math.min(save.player.survival.stamina, savedMaxStamina),
       dayElapsedSeconds: save.player.survival.dayElapsedSeconds % DAY_LENGTH_SECONDS,
     };
@@ -1632,8 +1655,14 @@ export class GameApp {
         display: `${Math.round(this.survival.stamina)}/${Math.round(this.survival.maxStamina)}`,
       },
       oxygen: metric(this.survival.oxygen),
+      fatigue: {
+        current: this.survival.fatigue,
+        max: 100,
+        display: `${Math.round(this.survival.fatigue)}%`,
+        state: this.survival.fatigue >= 80 ? "critical" : this.survival.fatigue >= 50 ? "warning" : "good",
+      },
       headingDegrees: heading,
-      locationLabel: `${this.locationLabel(position)} · Tag ${this.day} · ${this.weather.icon} ${this.weather.label}${volcanicHeat === 2 ? " · 🔥 Gluthitze" : volcanicHeat === 1 ? " · 🌡️ Vulkanhitze" : ""}${cliffWind === 2 ? " · 🌬️ Sturmgrat" : cliffWind === 1 ? " · 💨 Klippenwind" : ""}${this.isCold ? " · 🥶 Kalt" : this.weather.isRaining && this.warmthSource === "fire" ? " · 🔥 Feuerwärme" : this.weather.isRaining && this.warmthSource === "clothing" ? " · 👕 Geschützt" : ""}${this.isBleeding ? " · 🩸 Blutung" : ""}${this.poisonSecondsRemaining > 0 ? ` · ☠ Vergiftet ${Math.ceil(this.poisonSecondsRemaining / DAY_LENGTH_SECONDS)} T` : ""}${this.brackwaterSicknessSeconds > 0 ? ` · 🤢 Krank ${Math.ceil(this.brackwaterSicknessSeconds)} s` : ""}${deathPack ? ` · Rucksack ${Math.round(deathPack.distance)} m` : ""}`,
+      locationLabel: `${this.locationLabel(position)} · Tag ${this.day} · ${this.weather.icon} ${this.weather.label}${volcanicHeat === 2 ? " · 🔥 Gluthitze" : volcanicHeat === 1 ? " · 🌡️ Vulkanhitze" : ""}${cliffWind === 2 ? " · 🌬️ Sturmgrat" : cliffWind === 1 ? " · 💨 Klippenwind" : ""}${this.isCold ? " · 🥶 Kalt" : this.weather.isRaining && this.warmthSource === "fire" ? " · 🔥 Feuerwärme" : this.weather.isRaining && this.warmthSource === "clothing" ? " · 👕 Geschützt" : ""}${this.survival.fatigue >= 80 ? " · 💤 Erschöpft" : this.survival.fatigue >= 50 ? " · 😴 Müde" : ""}${this.isBleeding ? " · 🩸 Blutung" : ""}${this.poisonSecondsRemaining > 0 ? ` · ☠ Vergiftet ${Math.ceil(this.poisonSecondsRemaining / DAY_LENGTH_SECONDS)} T` : ""}${this.brackwaterSicknessSeconds > 0 ? ` · 🤢 Krank ${Math.ceil(this.brackwaterSicknessSeconds)} s` : ""}${deathPack ? ` · Rucksack ${Math.round(deathPack.distance)} m` : ""}`,
       ...(this.selectedBuild
         ? { prompt: { key: "LMB", action: this.buildPlacementValid ? "Bauen" : this.buildPlacementReason || "Ungültig", target: BUILDABLE_CATALOG[this.selectedBuild].label } }
         : targetPrompt
@@ -1650,6 +1679,7 @@ export class GameApp {
       selectedHotbarIndex: this.selectedHotbarIndex,
       clockLabel: `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`,
       map: {
+        visible: this.mapOpen,
         playerX: position.x,
         playerZ: position.z,
         headingDegrees: heading,
@@ -1938,6 +1968,25 @@ export class GameApp {
     });
   }
 
+  private notifyFatigueTransition(): void {
+    const level: FatigueLevel = this.survival.fatigue >= 80
+      ? "exhausted"
+      : this.survival.fatigue >= 50
+        ? "tired"
+        : "rested";
+    if (level === this.previousFatigueLevel) return;
+    const previous = this.previousFatigueLevel;
+    this.previousFatigueLevel = level;
+    if (previous === null || level === "rested") return;
+    this.ui.addToast({
+      text: level === "exhausted"
+        ? "Du bist völlig erschöpft. Sprinten ist nicht mehr möglich – finde ein Bett und schlafe."
+        : "Du wirst müde. Deine Ausdauer erholt sich langsamer.",
+      tone: level === "exhausted" ? "danger" : "warning",
+      durationMs: 7_000,
+    });
+  }
+
   private handlePanelChanged(panel: UiPanel | null): void {
     if (panel !== "storage" && this.activeChestId) {
       this.activeChestId = null;
@@ -2007,6 +2056,7 @@ export class GameApp {
         heldTool: this.heldItemId(),
         raft: this.world?.getRaft() ?? null,
         onRaft: this.onRaft,
+        mapOpen: this.mapOpen,
         fishSchools: this.world?.getFishSchoolPositions() ?? [],
         wildlife: this.world?.getWildlifePositions() ?? [],
         weather: this.weather,
@@ -2143,6 +2193,17 @@ export class GameApp {
       poison: () => this.poisonPlayer("Debug-Vergiftung."),
       spoilFood: (seconds) => {
         if (Number.isFinite(seconds) && seconds >= 0) this.advanceFoodSpoilage(seconds);
+      },
+      setFatigue: (value) => {
+        if (!Number.isFinite(value)) return;
+        this.patchVitals({ fatigue: clamp(value, 0, 100) });
+        this.notifyFatigueTransition();
+        this.refreshUi();
+      },
+      toggleMap: () => {
+        this.mapOpen = !this.mapOpen;
+        this.refreshUi();
+        return this.mapOpen;
       },
     };
   }

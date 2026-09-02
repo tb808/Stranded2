@@ -21,6 +21,7 @@ function validSave(): RuntimeSaveV1 {
         stamina: 90,
         maxStamina: 90,
         oxygen: 100,
+        fatigue: 0,
         staminaRegenDelayRemaining: 0,
         dayElapsedSeconds: 320,
       },
@@ -78,6 +79,17 @@ describe("RuntimeSaveV1", () => {
 
     valid.player.survival.stamina = 71;
     expect(isRuntimeSaveV1(valid)).toBe(false);
+  });
+
+  it("speichert Müdigkeit und lädt ältere Spielstände ohne Müdigkeitswert als ausgeruht", () => {
+    const save = validSave() as unknown as Record<string, any>;
+    save.player.survival.fatigue = 82;
+    expect(isRuntimeSaveV1(save)).toBe(true);
+
+    save.player.survival.fatigue = 101;
+    expect(isRuntimeSaveV1(save)).toBe(false);
+    delete save.player.survival.fatigue;
+    expect(isRuntimeSaveV1(save)).toBe(true);
   });
 
   it("speichert eine laufende Brackwasserkrankheit und akzeptiert ältere Spielstände ohne Zustandsfeld", () => {

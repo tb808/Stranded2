@@ -151,6 +151,7 @@ export function migrateGameSave(input: unknown): SaveMigrationResult {
       survival: {
         ...legacy.value.vitals,
         maxStamina: 100,
+        fatigue: 0,
         staminaRegenDelayRemaining: 0,
         dayElapsedSeconds: legacy.value.dayElapsedSeconds % DAY_LENGTH_SECONDS,
       },
@@ -376,11 +377,14 @@ function parseSurvival(
   const maxStamina = record.maxStamina === undefined
     ? 100
     : readRangeNumber(record.maxStamina, 35, 100, `${path}.maxStamina`, errors);
+  const fatigue = record.fatigue === undefined
+    ? 0
+    : readRangeNumber(record.fatigue, 0, 100, `${path}.fatigue`, errors);
   if (vitals && maxStamina !== undefined && vitals.stamina > maxStamina) {
     errors.push(`${path}.stamina cannot exceed maxStamina.`);
   }
-  return vitals && maxStamina !== undefined && vitals.stamina <= maxStamina && staminaRegenDelayRemaining !== undefined && dayElapsedSeconds !== undefined
-    ? { ...vitals, maxStamina, staminaRegenDelayRemaining, dayElapsedSeconds: dayElapsedSeconds % DAY_LENGTH_SECONDS }
+  return vitals && maxStamina !== undefined && fatigue !== undefined && vitals.stamina <= maxStamina && staminaRegenDelayRemaining !== undefined && dayElapsedSeconds !== undefined
+    ? { ...vitals, maxStamina, fatigue, staminaRegenDelayRemaining, dayElapsedSeconds: dayElapsedSeconds % DAY_LENGTH_SECONDS }
     : undefined;
 }
 

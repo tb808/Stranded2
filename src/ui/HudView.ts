@@ -31,6 +31,7 @@ const METRIC_DEFINITIONS = [
   ['thirst', 'Durst', '●'],
   ['stamina', 'Ausdauer', '↯'],
   ['oxygen', 'Sauerstoff', '○'],
+  ['fatigue', 'Müdigkeit', '☾'],
 ] as const;
 
 export class HudView {
@@ -52,6 +53,7 @@ export class HudView {
   private readonly hotbar: HTMLElement;
   private readonly mapSvg: SVGSVGElement;
   private readonly mapLocation: HTMLElement;
+  private readonly map: HTMLElement;
   private readonly actions: HudActions;
 
   constructor(actions: HudActions) {
@@ -137,18 +139,18 @@ export class HudView {
     this.mapSvg.setAttribute('viewBox', '0 0 320 190');
     this.mapSvg.setAttribute('role', 'img');
     this.mapLocation = element('span', 'hud-map__location', 'Unbekannte Gewässer');
-    const map = element(
+    this.map = element(
       'aside',
       'hud-map',
-      element('header', 'hud-map__header', element('strong', '', 'Archipelkarte'), element('span', '', 'N ↑')),
+      element('header', 'hud-map__header', element('strong', '', 'Archipelkarte'), element('span', '', 'M · Einstecken')),
       this.mapSvg,
       element('footer', 'hud-map__footer', element('span', 'hud-map__legend', '▲ Du'), this.mapLocation),
     );
-    map.setAttribute('aria-label', 'Archipelkarte mit aktuellem Standort');
+    this.map.setAttribute('aria-label', 'Hervorgeholte Archipelkarte mit aktuellem Standort');
 
     const crosshair = element('span', 'hud-crosshair');
     crosshair.setAttribute('aria-hidden', 'true');
-    this.element = element('section', 'game-hud', top, map, crosshair, this.prompt, bottom);
+    this.element = element('section', 'game-hud', top, this.map, crosshair, this.prompt, bottom);
     this.element.setAttribute('aria-label', 'Spielanzeige');
     setHidden(this.prompt, true);
     setHidden(this.clock, true);
@@ -161,6 +163,7 @@ export class HudView {
       ['Durst', model.thirst],
       ['Ausdauer', model.stamina],
       ['Sauerstoff', model.oxygen],
+      ['Müdigkeit', model.fatigue],
     ];
     for (const [label, metric] of metrics) this.updateMetric(label, metric);
 
@@ -174,6 +177,7 @@ export class HudView {
     this.updatePrompt(model);
     this.updateMessages(model);
     this.updateHotbar(model.hotbar, model.selectedHotbarIndex);
+    setHidden(this.map, !model.map.visible);
     this.updateMap(model.map);
   }
 

@@ -56,6 +56,7 @@ describe('sleep helpers', () => {
       thirst: 9,
       stamina: 21,
       oxygen: 64,
+      fatigue: 85,
       staminaRegenDelayRemaining: 0.8,
       dayElapsedSeconds: elapsedAt(0.95),
     });
@@ -71,6 +72,7 @@ describe('sleep helpers', () => {
         stamina: 100,
         maxStamina: 100,
         oxygen: 64,
+        fatigue: 0,
         staminaRegenDelayRemaining: 0,
         dayElapsedSeconds: 0,
       },

@@ -695,6 +695,8 @@
     box-shadow: var(--shadow-small);
     pointer-events: none;
     backdrop-filter: blur(9px);
+    transform-origin: right bottom;
+    animation: panel-in 220ms var(--ease-out);
   }
 
   .hud-map__header,
