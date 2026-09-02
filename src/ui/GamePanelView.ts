@@ -187,7 +187,7 @@ export class GamePanelView {
         : undefined;
     const meta: Record<UiPanel, [string, string]> = {
       inventory: [this.inventory.title ?? 'Rucksack', 'I'],
-      crafting: [this.crafting.title, this.crafting.station === 'workbench' ? 'E' : 'C'],
+      crafting: [this.crafting.title, this.crafting.station === 'workbench' ? 'F' : 'C'],
       build: ['Bauplan wählen', 'B'],
       storage: [this.storage.title ?? 'Truhe', 'E'],
     };
@@ -198,7 +198,7 @@ export class GamePanelView {
       const label = craftingNav.querySelector<HTMLElement>('.game-panel__nav-label');
       const key = craftingNav.querySelector<HTMLElement>('.game-panel__nav-key');
       if (label) label.textContent = this.crafting.station === 'workbench' ? 'Werkbank' : 'Handwerk';
-      if (key) key.textContent = this.crafting.station === 'workbench' ? 'E' : 'C';
+      if (key) key.textContent = this.crafting.station === 'workbench' ? 'F' : 'C';
     }
     for (const [panel, control] of this.navButtons) {
       const active = panel === this.activePanel;
@@ -546,9 +546,9 @@ export class GamePanelView {
         element(
           'aside',
           'build-help',
-          element('p', 'panel-detail__eyebrow', 'Baumodus'),
-          element('h3', '', 'Am passenden Ort bauen'),
-          element('p', '', 'Wähle einen Bauplan. Die Platzierung erfolgt anschließend direkt in der Welt.'),
+          element('p', 'panel-detail__eyebrow', 'Bausätze'),
+          element('h3', '', 'Hergestellte Teile platzieren'),
+          element('p', '', 'Stelle Bauwerke zuerst her. Danach kannst du den Bausatz hier oder über „Benutzen“ im Inventar platzieren.'),
           cancelBuild,
         ),
       ),

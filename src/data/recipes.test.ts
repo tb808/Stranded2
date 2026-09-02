@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { BUILDABLE_IDS } from './buildables';
 import { getMaxDurability, ITEM_CATALOG } from './items';
 import { craftingStationFor, RECIPE_CATALOG } from './recipes';
 
@@ -170,5 +171,20 @@ describe('RECIPE_CATALOG', () => {
     expect(craftingStationFor(RECIPE_CATALOG.backpack)).toBe('workbench');
     expect(craftingStationFor(RECIPE_CATALOG.raft_base)).toBe('workbench');
     expect(craftingStationFor(RECIPE_CATALOG.paddle)).toBe('workbench');
+  });
+
+  it('legt jedes herstellbare Bauwerk als eigenen Bausatz im Inventar ab', () => {
+    for (const buildableId of BUILDABLE_IDS) {
+      expect(RECIPE_CATALOG[buildableId].output).toEqual({
+        kind: 'buildable',
+        buildableId,
+        quantity: 1,
+      });
+      expect(ITEM_CATALOG[buildableId]).toMatchObject({
+        id: buildableId,
+        category: 'buildable',
+        stackLimit: 1,
+      });
+    }
   });
 });

@@ -7,6 +7,7 @@ export type InputAction =
   | "jump"
   | "dive"
   | "interact"
+  | "workbench"
   | "attack"
   | "inventory"
   | "crafting"
@@ -37,6 +38,7 @@ const KEY_BINDINGS: Readonly<Record<string, InputAction>> = {
   ControlLeft: "dive",
   ControlRight: "dive",
   KeyE: "interact",
+  KeyF: "workbench",
   Tab: "inventory",
   KeyC: "crafting",
   KeyB: "building",

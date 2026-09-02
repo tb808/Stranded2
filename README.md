@@ -58,7 +58,7 @@ Die Mondklippen bilden eine windige Erkundungsprüfung. Auf hohen und exponierte
 
 Auf der Schatzsandbank ragt eine Truhe nur halb aus dem Sand. Direkt daneben liegt der Bauplan für eine improvisierte Schaufel aus Palmstamm, Stöcken und Seilbindung. Mit ausgewählter Schaufel kann die Truhe dauerhaft freigelegt und anschließend geöffnet werden. Darin liegt eine Karte zu einer riesigen Insel außerhalb des bekannten Archipels; diese Zielinsel ist bewusst noch nicht Teil der Welt- oder HUD-Karte.
 
-Zu den baubaren Survival-Objekten gehören Lagerfeuer, Schutzdach, Bett, Truhe, Werkbank und Palm-Destille. Das Schutzdach setzt den Respawnpunkt; im Bett kann nachts bis zum Morgen geschlafen werden. Jede Truhe besitzt 16 dauerhaft gespeicherte Plätze, zwischen denen ganze Itemstapel per Klick verschoben werden. Mit ausgewähltem Bauhammer kann eine Werkbank per `E` eingepackt werden. Die verpackte Werkbank liegt anschließend im Inventar und lässt sich über „Benutzen“ oder „Ablegen“ ohne neue Materialkosten wieder platzieren.
+Zu den baubaren Survival-Objekten gehören Lagerfeuer, Schutzdach, Bett, Truhe, Werkbank und Palm-Destille. Das Schutzdach setzt den Respawnpunkt; im Bett kann nachts bis zum Morgen geschlafen werden. Jede Truhe besitzt 16 dauerhaft gespeicherte Plätze, zwischen denen ganze Itemstapel per Klick verschoben werden. `F` öffnet an einer Werkbank das vollständige Herstellungsmenü. Mit ausgewähltem Bauhammer kann die Werkbank separat per `E` eingepackt werden. Die verpackte Werkbank liegt anschließend im Inventar und lässt sich über „Benutzen“ oder „Ablegen“ ohne neue Materialkosten wieder platzieren.
 
 Regen und Gewitter kühlen die Spielfigur aus. Ohne angezogenes Schutzhemd oder ein brennendes Lagerfeuer in höchstens sechs Metern Entfernung sinkt die maximale Ausdauer langsam bis auf 35; in Wärme erholt sie sich wieder.
 
@@ -84,6 +84,7 @@ Vite startet die Entwicklungsversion standardmäßig unter `http://127.0.0.1:417
 - `Shift`: sprinten, `Space`: springen/auftauchen, `Strg`: abtauchen
 - Beim Schwimmen folgt `W/S` der Blickrichtung: nach oben schauen lässt dich aufsteigen, nach unten schauen lässt dich abtauchen
 - `E`: aufnehmen, benutzen, Floß betreten/verlassen
+- `F`: Werkbank benutzen und vollständiges Herstellungsmenü öffnen
 - `1`–`4`: Schnellzugriff, `Tab`: Inventar, `C`: Crafting, `B`: Bauen
 - `M`: Karte hervorholen oder wieder einstecken
 - `R`: Bauvorschau drehen, `Esc`: Pause

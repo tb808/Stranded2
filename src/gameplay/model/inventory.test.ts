@@ -34,6 +34,15 @@ describe('Inventory', () => {
     ]);
   });
 
+  it('bewahrt hergestellte Bauwerke als einzelne Bausätze auf', () => {
+    const inventory = new Inventory(2);
+    expect(inventory.add('campfire', 2)).toEqual({ added: 2, remainder: 0 });
+    expect(inventory.stacks).toEqual([
+      { itemId: 'campfire', quantity: 1 },
+      { itemId: 'campfire', quantity: 1 },
+    ]);
+  });
+
   it('removes up to the available amount and reports missing quantity', () => {
     const inventory = new Inventory(4, [{ itemId: 'stick', quantity: 7 }]);
     expect(inventory.remove('stick', 4)).toEqual({ removed: 4, missing: 0 });

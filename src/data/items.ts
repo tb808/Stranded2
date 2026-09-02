@@ -1,6 +1,9 @@
-export type ItemCategory = 'material' | 'component' | 'food' | 'medical' | 'tool' | 'equipment';
+import type { BuildableId } from './buildables';
+
+export type ItemCategory = 'material' | 'component' | 'food' | 'medical' | 'tool' | 'equipment' | 'buildable';
 
 export type ItemId =
+  | BuildableId
   | 'fiber'
   | 'stick'
   | 'stone'
@@ -239,6 +242,96 @@ export const ITEM_CATALOG = {
     id: 'portable_workbench',
     label: 'Verpackte Werkbank',
     category: 'component',
+    stackLimit: 1,
+  },
+  campfire: {
+    id: 'campfire',
+    label: 'Lagerfeuer-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  shelter: {
+    id: 'shelter',
+    label: 'Schutzdach-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  bed: {
+    id: 'bed',
+    label: 'Bett-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  chest: {
+    id: 'chest',
+    label: 'Truhen-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  workbench: {
+    id: 'workbench',
+    label: 'Werkbank-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  palm_still: {
+    id: 'palm_still',
+    label: 'Destillen-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  rain_collector: {
+    id: 'rain_collector',
+    label: 'Regenfänger-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  fish_trap: {
+    id: 'fish_trap',
+    label: 'Fischreusen-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  smoking_rack: {
+    id: 'smoking_rack',
+    label: 'Räuchergestell-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  hut_foundation: {
+    id: 'hut_foundation',
+    label: 'Hüttenfundament-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  hut_wall: {
+    id: 'hut_wall',
+    label: 'Hüttenwand-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  hut_doorway: {
+    id: 'hut_doorway',
+    label: 'Türrahmen-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  hut_roof: {
+    id: 'hut_roof',
+    label: 'Hüttendach-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  raft_base: {
+    id: 'raft_base',
+    label: 'Floßbasis-Bausatz',
+    category: 'buildable',
+    stackLimit: 1,
+  },
+  raft_deck: {
+    id: 'raft_deck',
+    label: 'Floßdeck-Bausatz',
+    category: 'buildable',
     stackLimit: 1,
   },
   woven_shirt: {
