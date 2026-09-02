@@ -10,6 +10,9 @@ export class AudioService {
   private master: GainNode | null = null;
   private masterVolume = 1;
   private oceanOscillator: OscillatorNode | null = null;
+  private oceanGain: GainNode | null = null;
+  private oceanFilter: BiquadFilterNode | null = null;
+  private oceanIntensity = 0.3;
   private unlocked = false;
 
   public constructor(private readonly assets: AssetService) {}
@@ -78,20 +81,36 @@ export class AudioService {
     oscillator.type = "sine";
     oscillator.frequency.value = 72;
     filter.type = "lowpass";
-    filter.frequency.value = 180;
-    noiseGain.gain.value = 0.012;
+    filter.frequency.value = 150 + this.oceanIntensity * 90;
+    noiseGain.gain.value = 0.006 + this.oceanIntensity * 0.015;
     oscillator.connect(filter);
     filter.connect(noiseGain);
     noiseGain.connect(this.gains.get("ambience") ?? this.context.destination);
     oscillator.start();
     this.oceanOscillator = oscillator;
+    this.oceanGain = noiseGain;
+    this.oceanFilter = filter;
+  }
+
+  public setOceanIntensity(value: number): void {
+    const intensity = Math.max(0, Math.min(1, value));
+    if (Math.abs(intensity - this.oceanIntensity) < 0.001) return;
+    this.oceanIntensity = intensity;
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    this.oceanGain?.gain.setTargetAtTime(0.006 + intensity * 0.015, now, 1.2);
+    this.oceanFilter?.frequency.setTargetAtTime(150 + intensity * 90, now, 1.2);
   }
 
   public stopOceanAmbience(): void {
     if (!this.oceanOscillator) return;
     this.oceanOscillator.stop();
     this.oceanOscillator.disconnect();
+    this.oceanFilter?.disconnect();
+    this.oceanGain?.disconnect();
     this.oceanOscillator = null;
+    this.oceanGain = null;
+    this.oceanFilter = null;
   }
 
   public dispose(): void {

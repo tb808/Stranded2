@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { oceanConditionsForWeather } from "../gameplay/model/ocean";
 import { RapierPhysicsWorld } from "./RapierPhysicsWorld";
 
 describe("RapierPhysicsWorld", () => {
@@ -46,5 +47,27 @@ describe("RapierPhysicsWorld", () => {
     expect(highestPosition).toBeLessThan(0.65);
     expect(pose.position.y).toBeGreaterThan(-0.55);
     expect(pose.position.y).toBeLessThan(0.25);
+  });
+
+  it("überträgt die stärkere Gewittersee auf Floß und Schwimmer", async () => {
+    physics = new RapierPhysicsWorld();
+    await physics.initialize();
+    physics.setOceanConditions(oceanConditionsForWeather("storm", 0));
+    physics.createRaft("storm-raft", { x: 0, y: 0.35, z: 0 });
+    physics.createPlayer({ x: 30, y: 0, z: 30 });
+
+    let lowestRaftY = Number.POSITIVE_INFINITY;
+    let highestRaftY = Number.NEGATIVE_INFINITY;
+    for (let step = 0; step < 360; step += 1) {
+      physics.movePlayer({ x: 0, z: 0, vertical: 0, swimming: true }, 1 / 60);
+      physics.step(1 / 60, step / 60);
+      const raftY = physics.getRaftPose("storm-raft")!.position.y;
+      lowestRaftY = Math.min(lowestRaftY, raftY);
+      highestRaftY = Math.max(highestRaftY, raftY);
+    }
+
+    const swimmer = physics.getPlayerPosition();
+    expect(highestRaftY - lowestRaftY).toBeGreaterThan(0.2);
+    expect(Math.hypot(swimmer.x - 30, swimmer.z - 30)).toBeGreaterThan(0.5);
   });
 });

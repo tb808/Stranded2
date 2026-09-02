@@ -527,6 +527,7 @@ export class GameApp {
     this.weather = this.weatherOverride
       ? weatherState(this.weatherOverride)
       : getWeatherState(this.day, this.survival.dayElapsedSeconds);
+    this.audio.setOceanIntensity(this.weather.kind === "storm" ? 1 : this.weather.kind === "rain" ? 0.62 : this.weather.kind === "heat" ? 0.14 : 0.32);
     this.notifyWeatherTransition();
     this.warmthSource = this.equippedShirt
       ? "clothing"
@@ -1949,7 +1950,7 @@ export class GameApp {
       : this.weather.kind === "heat"
         ? "Die Hitze steigt – du brauchst deutlich mehr Wasser."
         : this.weather.kind === "storm"
-          ? "Ein kaltes Gewitter zieht auf – Blitze können Feuer und Bäume treffen."
+          ? "Ein kaltes Gewitter zieht auf – das Meer wird rau und Blitze können Feuer und Bäume treffen."
           : "Der Himmel klart auf.";
     this.ui.addToast({ text, tone: this.weather.kind === "storm" || this.weather.kind === "heat" ? "warning" : "info", durationMs: 5_000 });
   }

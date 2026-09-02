@@ -37,6 +37,17 @@ function findEntityObject(world: TropicalWorld, id: string): Object3D {
   return result;
 }
 
+function groupByKey<T>(values: readonly T[], keyOf: (value: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const value of values) {
+    const key = keyOf(value);
+    const members = groups.get(key) ?? [];
+    members.push(value);
+    groups.set(key, members);
+  }
+  return groups;
+}
+
 describe("TropicalWorld Bauplatzregeln", () => {
   it("stellt gefundene Briefe als sichtbares Pergament mit Siegel dar", () => {
     const letter = createLoreLetterVisual();
@@ -1097,6 +1108,24 @@ describe("TropicalWorld Streamingqualität", () => {
   });
 });
 
+describe("TropicalWorld dynamisches Meer", () => {
+  it("passt Wellen, Strömung und Brandung sichtbar an das Wetter an", async () => {
+    const world = await createInitializedWorld();
+    world.update(0.1, 80, 1, 0.5, { x: 0, y: 2, z: 0 }, false, false, false, weatherState("heat"));
+    const calm = world.getOceanConditions();
+    world.update(0.1, 81, 1, 0.5, { x: 0, y: 2, z: 0 }, false, false, false, weatherState("storm"));
+    const storm = world.getOceanConditions();
+
+    expect(world.scene.getObjectByName("Dynamischer Ozean")).toBeInstanceOf(Mesh);
+    expect(world.scene.children.filter(({ name }) => name === "Animierte Brandung")).toHaveLength(WORLD_MANIFEST.islands.length);
+    expect(storm.waveHeight).toBeGreaterThan(calm.waveHeight);
+    expect(storm.choppiness).toBeGreaterThan(calm.choppiness);
+    expect(storm.foamStrength).toBeGreaterThan(calm.foamStrength);
+    expect(Math.hypot(storm.currentX, storm.currentZ)).toBeGreaterThan(Math.hypot(calm.currentX, calm.currentZ));
+    world.dispose();
+  });
+});
+
 describe("TropicalWorld Inseltiere und Grill", () => {
   it("macht die Mangrovenbucht durch bewachte Heilkräuter und trinkbares, riskantes Brackwasser spielerisch eigenständig", async () => {
     const world = await createInitializedWorld();
@@ -1183,6 +1212,56 @@ describe("TropicalWorld Inseltiere und Grill", () => {
     const animal = world.getWildlifePositions().find(({ kind }) => kind === "chicken")!;
     world.update(0.1, 401, 1, 0.08, animal.position, false, false, false, weatherState("clear"), 1);
     expect(world.getWildlifePositions().find(({ id }) => id === animal.id)?.state).toBe("alerted");
+    world.dispose();
+  });
+
+  it("ordnet Herdentiere dauerhaft kleinen, räumlich passenden Gruppen zu", async () => {
+    const world = await createInitializedWorld();
+    const herdAnimals = world.getWildlifePositions().filter(({ kind }) => (
+      kind === "wild_boar" || kind === "chicken" || kind === "turtle" || kind === "bird"
+    ));
+    const groups = groupByKey(herdAnimals, ({ groupId }) => groupId);
+
+    expect([...groups.values()].every((members) => members.length >= 1 && members.length <= 3)).toBe(true);
+    expect([...groups.values()].some((members) => members.length === 3)).toBe(true);
+    for (const members of groups.values()) {
+      expect(new Set(members.map(({ kind }) => kind)).size).toBe(1);
+      expect(new Set(members.map(({ position }) => world.getIslandAt(position.x, position.z)?.id)).size).toBe(1);
+    }
+    world.dispose();
+  });
+
+  it("schickt Tiere morgens ans Süßwasser und alarmiert eine ganze Vogelgruppe gemeinsam", async () => {
+    const world = await createInitializedWorld();
+    world.update(0.1, 100, 1, 0.34, { x: 0, y: 2, z: 0 }, false, false);
+    const drinkers = world.getWildlifePositions().filter(({ hasWaterTarget }) => hasWaterTarget);
+    expect(drinkers.length).toBeGreaterThan(0);
+    expect(drinkers.every(({ state }) => state === "drinking")).toBe(true);
+
+    const birds = world.getWildlifePositions().filter(({ kind }) => kind === "bird");
+    const flock = [...groupByKey(birds, ({ groupId }) => groupId).values()].find((members) => members.length > 1)!;
+    world.update(0.1, 101, 1, 0.5, flock[0]!.position, false, false, false, weatherState("clear"), 1);
+    const flockIds = new Set(flock.map(({ id }) => id));
+    expect(world.getWildlifePositions().filter(({ id }) => flockIds.has(id)).every(({ state }) => state === "alerted")).toBe(true);
+    world.dispose();
+  });
+
+  it("lässt Vögel nachts in Baumkronen landen und laufende Tiere vergängliche Spuren hinterlassen", async () => {
+    const world = await createInitializedWorld();
+    const birdsBefore = new Map(world.getWildlifePositions().filter(({ kind }) => kind === "bird").map(({ id, position }) => [id, position]));
+    world.update(2, 20, 1, 0.08, { x: 0, y: 2, z: 0 }, false, false);
+    const perchedBirds = world.getWildlifePositions().filter(({ kind, state, position, id }) => {
+      const before = birdsBefore.get(id)!;
+      return kind === "bird" && state === "sleeping" && position.y > before.y
+        && Math.hypot(position.x - before.x, position.z - before.z) > 0.1;
+    });
+    expect(perchedBirds.length).toBeGreaterThan(0);
+
+    for (let second = 0; second < 10; second += 1) {
+      world.update(1, 400 + second, 1, 0.5, { x: 0, y: 2, z: 0 }, false, false);
+    }
+    expect(world.getWildlifeTrackCount()).toBeGreaterThan(0);
+    expect(world.scene.getObjectByName("Kurzlebige Tierspuren")?.children.length).toBe(world.getWildlifeTrackCount());
     world.dispose();
   });
 

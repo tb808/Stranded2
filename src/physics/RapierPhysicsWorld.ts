@@ -1,5 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { clamp, type Vec3Like } from "../core/math";
+import { oceanConditionsForWeather, oceanSurfaceHeight, type OceanConditions } from "../gameplay/model/ocean";
 
 export interface PhysicsPose {
   position: Vec3Like;
@@ -26,6 +27,7 @@ export class RapierPhysicsWorld {
   private readonly rafts = new Map<string, RaftPhysics>();
   private verticalVelocity = 0;
   private grounded = false;
+  private oceanConditions = oceanConditionsForWeather("clear", 0);
 
   public async initialize(): Promise<void> {
     await RAPIER.init();
@@ -107,9 +109,9 @@ export class RapierPhysicsWorld {
     }
 
     const desired = {
-      x: motion.x * dtSeconds,
+      x: (motion.x + (motion.swimming ? this.oceanConditions.currentX : 0)) * dtSeconds,
       y: this.verticalVelocity * dtSeconds,
-      z: motion.z * dtSeconds,
+      z: (motion.z + (motion.swimming ? this.oceanConditions.currentZ : 0)) * dtSeconds,
     };
     this.characterController.computeColliderMovement(this.playerCollider, desired);
     const corrected = this.characterController.computedMovement();
@@ -231,6 +233,10 @@ export class RapierPhysicsWorld {
     this.rafts.get(id)?.body.applyImpulse(impulse, true);
   }
 
+  public setOceanConditions(conditions: OceanConditions): void {
+    this.oceanConditions = { ...conditions };
+  }
+
   public step(dtSeconds: number, elapsedSeconds: number): void {
     this.world.timestep = dtSeconds;
     for (const raft of this.rafts.values()) this.applyBuoyancy(raft.body, elapsedSeconds);
@@ -256,7 +262,7 @@ export class RapierPhysicsWorld {
     const mass = body.mass();
     for (const local of localPoints) {
       const worldPoint = rotateAndTranslate(local, rotation, translation);
-      const waterY = oceanHeight(worldPoint.x, worldPoint.z, elapsedSeconds);
+      const waterY = oceanSurfaceHeight(worldPoint.x, worldPoint.z, elapsedSeconds, this.oceanConditions);
       const depth = waterY - worldPoint.y;
       if (depth <= 0) continue;
       const lift = (mass * 9.81 * clamp(depth * 1.8, 0, 2.2)) / localPoints.length;
@@ -264,11 +270,12 @@ export class RapierPhysicsWorld {
     }
     const velocity = body.linvel();
     body.addForce({ x: -velocity.x * mass * 0.7, y: 0, z: -velocity.z * mass * 0.7 }, true);
+    body.addForce({
+      x: this.oceanConditions.currentX * mass * 0.9,
+      y: 0,
+      z: this.oceanConditions.currentZ * mass * 0.9,
+    }, true);
   }
-}
-
-function oceanHeight(x: number, z: number, time: number): number {
-  return Math.sin(x * 0.055 + time * 1.1) * 0.08 + Math.cos(z * 0.07 - time * 0.8) * 0.06;
 }
 
 function rotateAndTranslate(

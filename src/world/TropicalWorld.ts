@@ -42,6 +42,7 @@ import { CHEST_STORAGE_SLOTS, type BuildableId } from "../data/buildables";
 import type { ItemId } from "../data/items";
 import { LORE_LETTERS, type LoreLetterId } from "../data/loreLetters";
 import { Inventory, type ItemStack } from "../gameplay/model/inventory";
+import { oceanConditionsForWeather, type OceanConditions } from "../gameplay/model/ocean";
 import { weatherState, type WeatherState } from "../gameplay/model/weather";
 import { WORLD_MANIFEST, getIsland, type IslandDimensions, type IslandId, type ResourceSourceId, type WorldIslandManifest } from "../data/worldManifest";
 import type { RapierPhysicsWorld } from "../physics/RapierPhysicsWorld";
@@ -474,7 +475,7 @@ const ORIGINAL_ISLAND_DIMENSIONS: Readonly<Record<IslandId, IslandDimensions>> =
 };
 
 export type WildlifeKind = "wild_boar" | "chicken" | "turtle" | "bird" | "crocodile" | "snake";
-export type WildlifeBehaviorState = "sleeping" | "feeding" | "wandering" | "alerted";
+export type WildlifeBehaviorState = "sleeping" | "feeding" | "drinking" | "wandering" | "alerted";
 
 interface IslandWildlifeCounts {
   readonly wildBoars: number;
@@ -578,6 +579,11 @@ interface WorldEntity {
   wildlifePhase?: number;
   wildlifeState?: WildlifeBehaviorState;
   wildlifeProvoked?: boolean;
+  wildlifeGroupId?: string;
+  wildlifeWaterTarget?: Vector3;
+  wildlifePerch?: Vector3;
+  wildlifeLastTrackPosition?: Vector3;
+  wildlifeTrackCooldown?: number;
   burningSeconds?: number;
   fireObject?: Object3D;
   climbDestination?: Vec3Like;
@@ -614,6 +620,12 @@ interface FishSchool {
   readonly speed: number;
   readonly phase: number;
   availableAtSeconds: number;
+}
+
+interface WildlifeTrack {
+  readonly object: Group;
+  ageSeconds: number;
+  readonly lifetimeSeconds: number;
 }
 
 interface KitSceneryPlacement {
@@ -712,6 +724,9 @@ export class TropicalWorld {
   private readonly dynamicDropIds = new Set<string>();
   private readonly streamedScenery: Array<{ object: Object3D; center: Vector3; distance: number }> = [];
   private readonly fishSchools: FishSchool[] = [];
+  private readonly wildlifeTrackGroup = new Group();
+  private readonly wildlifeTracks: WildlifeTrack[] = [];
+  private readonly shorelineFoamMaterials: ShaderMaterial[] = [];
   private readonly raftObject = new Group();
   private readonly rain = createRainVisual();
   private readonly lightningLight = new PointLight(0xd8edff, 0, 230, 1.25);
@@ -729,6 +744,7 @@ export class TropicalWorld {
   private streamingDistanceFactor = STREAMING_DISTANCE_FACTORS.high;
   private playerUnderwater = false;
   private currentWeather: WeatherState = weatherState("clear");
+  private currentOceanConditions = oceanConditionsForWeather("clear", 0);
   private lastLightningSlot = -1;
   private lightningFlashSeconds = 0;
   private volcanicHeatSeconds = 0;
@@ -750,7 +766,8 @@ export class TropicalWorld {
     this.sun.shadow.camera.far = 480;
     this.sun.shadow.bias = -0.00015;
     this.sun.shadow.normalBias = 0.045;
-    this.scene.add(this.sun, this.sun.target, this.hemisphere, this.rain, this.lightningLight);
+    this.wildlifeTrackGroup.name = "Kurzlebige Tierspuren";
+    this.scene.add(this.sun, this.sun.target, this.hemisphere, this.rain, this.lightningLight, this.wildlifeTrackGroup);
     this.oceanMaterial = createOceanMaterial();
     this.skyMaterial = createSkyMaterial();
   }
@@ -832,7 +849,7 @@ export class TropicalWorld {
     }));
   }
 
-  public getWildlifePositions(): Array<{ id: string; kind: WildlifeKind; position: Vec3Like; state: WildlifeBehaviorState }> {
+  public getWildlifePositions(): Array<{ id: string; kind: WildlifeKind; position: Vec3Like; state: WildlifeBehaviorState; groupId: string; hasWaterTarget: boolean; isAirborne: boolean }> {
     return [...this.entities.values()].flatMap((entity) =>
       isWildlifeKind(entity.kind) && entity.available
         ? [{
@@ -840,9 +857,20 @@ export class TropicalWorld {
             kind: entity.kind,
             position: { x: entity.object.position.x, y: entity.object.position.y, z: entity.object.position.z },
             state: entity.wildlifeState ?? "wandering",
+            groupId: entity.wildlifeGroupId ?? entity.id,
+            hasWaterTarget: Boolean(entity.wildlifeWaterTarget),
+            isAirborne: entity.kind === "bird" && entity.object.position.y - this.heightAt(entity.object.position.x, entity.object.position.z) > 1.2,
           }]
         : [],
     );
+  }
+
+  public getWildlifeTrackCount(): number {
+    return this.wildlifeTracks.length;
+  }
+
+  public getOceanConditions(): OceanConditions {
+    return { ...this.currentOceanConditions };
   }
 
   public update(
@@ -860,7 +888,20 @@ export class TropicalWorld {
     this.elapsedSeconds = elapsedSeconds;
     this.playerUnderwater = playerUnderwater;
     this.currentWeather = weather;
+    this.currentOceanConditions = oceanConditionsForWeather(weather.kind, elapsedSeconds);
     this.oceanMaterial.uniforms.uTime!.value = elapsedSeconds;
+    this.oceanMaterial.uniforms.uWaveHeight!.value = this.currentOceanConditions.waveHeight;
+    this.oceanMaterial.uniforms.uWaveSpeed!.value = this.currentOceanConditions.waveSpeed;
+    this.oceanMaterial.uniforms.uChoppiness!.value = this.currentOceanConditions.choppiness;
+    this.oceanMaterial.uniforms.uFoamStrength!.value = this.currentOceanConditions.foamStrength;
+    this.oceanMaterial.uniforms.uTideHeight!.value = this.currentOceanConditions.tideHeight;
+    (this.oceanMaterial.uniforms.uWind!.value as Vector2).set(this.currentOceanConditions.windX, this.currentOceanConditions.windZ);
+    for (const material of this.shorelineFoamMaterials) {
+      material.uniforms.uTime!.value = elapsedSeconds;
+      material.uniforms.uStrength!.value = 0.72 + this.currentOceanConditions.foamStrength * 0.55;
+      material.uniforms.uTideHeight!.value = this.currentOceanConditions.tideHeight;
+    }
+    this.physics.setOceanConditions?.(this.currentOceanConditions);
     for (const material of this.inlandWaterMaterials) material.uniforms.uTime!.value = elapsedSeconds;
     this.skyObject?.position.set(playerPosition.x, playerPosition.y, playerPosition.z);
     this.updateLighting(timeOfDay, playerPosition);
@@ -1670,20 +1711,23 @@ export class TropicalWorld {
     const seabed = createSandySeabed(2_900, 1_900, 420, 80);
     this.scene.add(seabed);
 
-    const oceanGeometry = new PlaneGeometry(2_900, 1_900, 200, 128);
+    const oceanGeometry = new PlaneGeometry(2_900, 1_900, 240, 156);
     oceanGeometry.rotateX(-Math.PI / 2);
     const ocean = new Mesh(oceanGeometry, this.oceanMaterial);
+    ocean.name = "Dynamischer Ozean";
     ocean.position.set(420, SEA_LEVEL, 80);
     ocean.renderOrder = 4;
     this.scene.add(ocean);
 
     for (const island of WORLD_MANIFEST.islands) {
-      this.scene.add(createFoamRing(
+      const foam = createFoamRing(
         island.positionMeters.x,
         island.positionMeters.z,
         island.dimensions.widthMeters * 0.47,
         island.dimensions.depthMeters * 0.47,
-      ));
+      );
+      this.shorelineFoamMaterials.push(foam.material);
+      this.scene.add(foam);
     }
 
     const sky = new Mesh(new SphereGeometry(1_500, 32, 18), this.skyMaterial);
@@ -2204,6 +2248,7 @@ export class TropicalWorld {
     const radiusX = island.dimensions.widthMeters * 0.5;
     const radiusZ = island.dimensions.depthMeters * 0.5;
     const spawnSpecies = (kind: WildlifeKind, count: number, minimumDistance: number, speciesRng = rng): void => {
+      const spawned: WorldEntity[] = [];
       for (let index = 0; index < count; index += 1) {
         let position: Vector3 | null = null;
         for (let attempt = 0; attempt < 80; attempt += 1) {
@@ -2239,6 +2284,10 @@ export class TropicalWorld {
         object.userData.entityId = id;
         this.scene.add(object);
         this.interactiveObjects.push(object);
+        const waterTarget = this.findWildlifeWaterTarget(kind, island, position);
+        const perch = kind === "bird" ? this.findWildlifePerch(position) : null;
+        const cooldown = speciesRng.range(0, 2);
+        const wildlifePhase = speciesRng.range(0, Math.PI * 2);
         const entity: WorldEntity = {
           id,
           kind,
@@ -2247,13 +2296,35 @@ export class TropicalWorld {
           amount: 1,
           hitPoints: wildlifeHitPoints(kind),
           maxHitPoints: wildlifeHitPoints(kind),
-          cooldown: speciesRng.range(0, 2),
+          cooldown,
           home: position.clone(),
-          wildlifePhase: speciesRng.range(0, Math.PI * 2),
+          wildlifePhase,
           wildlifeState: "wandering",
+          wildlifeLastTrackPosition: position.clone(),
+          wildlifeTrackCooldown: 0.6 + wildlifePhase / (Math.PI * 2) * 1.8,
         };
+        if (waterTarget) entity.wildlifeWaterTarget = waterTarget;
+        if (perch) entity.wildlifePerch = perch;
         this.setupEntityAnimations(entity);
         this.entities.set(id, entity);
+        spawned.push(entity);
+      }
+
+      const groupSize = kind === "wild_boar" || kind === "chicken" || kind === "turtle" || kind === "bird" ? 3 : 1;
+      const remaining = [...spawned];
+      for (let groupIndex = 0; remaining.length > 0; groupIndex += 1) {
+        const leader = remaining.shift()!;
+        const members = [leader];
+        while (members.length < groupSize && remaining.length > 0) {
+          let nearestIndex = 0;
+          for (let candidateIndex = 1; candidateIndex < remaining.length; candidateIndex += 1) {
+            if (distanceSquaredXZ(remaining[candidateIndex]!.object.position, leader.object.position)
+              < distanceSquaredXZ(remaining[nearestIndex]!.object.position, leader.object.position)) nearestIndex = candidateIndex;
+          }
+          members.push(remaining.splice(nearestIndex, 1)[0]!);
+        }
+        const groupId = `${island.id}-${kind}-group-${groupIndex}`;
+        for (const member of members) member.wildlifeGroupId = groupId;
       }
     };
     spawnSpecies("wild_boar", counts.wildBoars, 8);
@@ -2262,6 +2333,42 @@ export class TropicalWorld {
     spawnSpecies("bird", counts.birds, 7);
     spawnSpecies("crocodile", counts.crocodiles, 11);
     spawnSpecies("snake", counts.snakes, 5.5, new SeededRandom(ISLAND_TERRAIN_SEEDS[island.id] + 1_427));
+  }
+
+  private findWildlifeWaterTarget(kind: WildlifeKind, island: WorldIslandManifest, home: Vector3): Vector3 | null {
+    if (kind === "bird" || kind === "snake" || kind === "turtle" || kind === "crocodile") return null;
+    const basins = FRESHWATER_BASINS
+      .filter(({ islandId }) => islandId === island.id)
+      .map((definition) => resolveFreshwaterBasin(definition, island));
+    const nearest = basins.sort((left, right) => {
+      const leftPosition = { x: island.positionMeters.x + left.x, y: 0, z: island.positionMeters.z + left.z };
+      const rightPosition = { x: island.positionMeters.x + right.x, y: 0, z: island.positionMeters.z + right.z };
+      return distanceSquaredXZ(leftPosition, home) - distanceSquaredXZ(rightPosition, home);
+    })[0];
+    if (!nearest) return null;
+    const centerX = island.positionMeters.x + nearest.x;
+    const centerZ = island.positionMeters.z + nearest.z;
+    const outward = new Vector3(home.x - centerX, 0, home.z - centerZ);
+    if (outward.lengthSq() < 0.01) outward.set(1, 0, 0);
+    outward.normalize();
+    const x = centerX + outward.x * nearest.radiusX * 1.08;
+    const z = centerZ + outward.z * nearest.radiusZ * 1.08;
+    return new Vector3(x, this.heightAt(x, z), z);
+  }
+
+  private findWildlifePerch(position: Vector3): Vector3 | null {
+    let nearest: { position: Vector3; distanceSquared: number } | null = null;
+    for (const entity of this.entities.values()) {
+      if ((entity.kind !== "tree" && entity.kind !== "palm") || !entity.available) continue;
+      const distanceSquared = distanceSquaredXZ(entity.object.position, position);
+      if (distanceSquared > 28 ** 2 || nearest && distanceSquared >= nearest.distanceSquared) continue;
+      const height = entity.instancedTree?.height ?? 6.5;
+      nearest = {
+        position: new Vector3(entity.object.position.x, entity.object.position.y + height * 0.68, entity.object.position.z),
+        distanceSquared,
+      };
+    }
+    return nearest?.position ?? null;
   }
 
   private spawnIslandWaterFeatures(rng: SeededRandom): void {
@@ -3707,12 +3814,31 @@ export class TropicalWorld {
   }
 
   private updateWildlife(dt: number, player: Vec3Like, timeOfDay: number, playerNoise: number, events: WorldEvent[]): void {
+    this.updateWildlifeTracks(dt);
     const wildlife = [...this.entities.values()].filter((entity) =>
       isWildlifeKind(entity.kind) && entity.available && entity.home,
     );
+    const groups = new Map<string, WorldEntity[]>();
+    for (const animal of wildlife) {
+      const groupId = animal.wildlifeGroupId ?? animal.id;
+      const members = groups.get(groupId) ?? [];
+      members.push(animal);
+      groups.set(groupId, members);
+    }
+    const alarmedGroups = new Set<string>();
+    for (const animal of wildlife) {
+      if (animal.kind !== "bird" && animal.kind !== "chicken" && animal.kind !== "turtle") continue;
+      const distanceToPlayer = Math.sqrt(distanceSquaredXZ(animal.object.position, player));
+      const hearingRange = animal.kind === "bird" ? 30 : 16;
+      const heard = playerNoise > 0.05 && distanceToPlayer < hearingRange * (0.45 + clamp(playerNoise, 0, 1));
+      const close = distanceToPlayer < (animal.kind === "bird" ? 11 : 6.5);
+      const recentlyAlarmed = animal.wildlifeState === "alerted" && animal.cooldown > 0;
+      if (heard || close || recentlyAlarmed) alarmedGroups.add(animal.wildlifeGroupId ?? animal.id);
+    }
     for (const animal of wildlife) {
       animal.mixer?.update(dt);
       animal.cooldown = Math.max(0, animal.cooldown - dt);
+      animal.wildlifeTrackCooldown = Math.max(0, (animal.wildlifeTrackCooldown ?? 0) - dt);
       const home = animal.home!;
       const distanceToPlayer = Math.sqrt(distanceSquaredXZ(animal.object.position, player));
       const phase = animal.wildlifePhase ?? 0;
@@ -3723,19 +3849,23 @@ export class TropicalWorld {
       const hearingRange = animal.kind === "bird" ? 30 : animal.kind === "crocodile" ? 24 : animal.kind === "wild_boar" ? 20 : animal.kind === "snake" ? 12 : 16;
       const noiseHeard = playerNoise > 0.05 && distanceToPlayer < hearingRange * (0.45 + clamp(playerNoise, 0, 1));
       const proximityThreat = distanceToPlayer < (animal.kind === "crocodile" ? 8.5 : animal.kind === "wild_boar" ? 7.5 : animal.kind === "bird" ? 11 : animal.kind === "snake" ? 5.5 : 6.5);
-      const threatened = noiseHeard || proximityThreat || provokedBoar || animal.wildlifeState === "alerted" && animal.cooldown > 0;
+      const groupAlarmed = alarmedGroups.has(animal.wildlifeGroupId ?? animal.id);
+      const threatened = noiseHeard || proximityThreat || groupAlarmed || provokedBoar || animal.wildlifeState === "alerted" && animal.cooldown > 0;
       const isNight = timeOfDay < 0.21 || timeOfDay > 0.84;
+      const drinking = !isNight && !threatened && Boolean(animal.wildlifeWaterTarget) && timeOfDay >= 0.3 && timeOfDay <= 0.38;
       const feeding = !isNight && !threatened && ((this.elapsedSeconds * 0.035 + phase) % 1 + 1) % 1 < 0.34;
       const state: WildlifeBehaviorState = isNight && !threatened
         ? "sleeping"
         : threatened
           ? "alerted"
-          : feeding
-            ? "feeding"
-            : "wandering";
+          : drinking
+            ? "drinking"
+            : feeding
+              ? "feeding"
+              : "wandering";
       animal.wildlifeState = state;
       animal.object.userData.wildlifeState = state;
-      if (noiseHeard) animal.cooldown = Math.max(animal.cooldown, 3.5);
+      if (noiseHeard || groupAlarmed) animal.cooldown = Math.max(animal.cooldown, 3.5);
       if (animal.kind === "bird") this.updateBirdWingAnimation(animal, state, phase);
       if (animal.kind === "snake") this.updateSnakeAnimation(animal, state, phase);
 
@@ -3744,7 +3874,11 @@ export class TropicalWorld {
         animal.object.rotation.x = 0;
         animal.object.rotation.z = animal.kind === "bird" ? 0 : 0.08;
         const ground = this.heightAt(animal.object.position.x, animal.object.position.z);
-        animal.object.position.y = ground + (animal.kind === "bird" ? 0.62 : animal.kind === "turtle" || animal.kind === "crocodile" ? 0.1 : 0.03);
+        if (animal.kind === "bird" && animal.wildlifePerch) {
+          const perchDirection = animal.wildlifePerch.clone().sub(animal.object.position);
+          animal.object.position.addScaledVector(perchDirection, Math.min(1, dt * 0.85));
+          if (perchDirection.lengthSq() > 0.05) animal.object.rotation.y = Math.atan2(perchDirection.x, perchDirection.z);
+        } else animal.object.position.y = ground + (animal.kind === "bird" ? 0.62 : animal.kind === "turtle" || animal.kind === "crocodile" ? 0.1 : 0.03);
         continue;
       }
 
@@ -3760,12 +3894,20 @@ export class TropicalWorld {
         animal.object.position.y,
         home.z + Math.cos(this.elapsedSeconds * (animal.kind === "wild_boar" || animal.kind === "crocodile" ? 0.061 : 0.09) + phase * 1.3) * orbitRadius,
       );
+      const members = groups.get(animal.wildlifeGroupId ?? animal.id) ?? [animal];
+      if (state === "wandering" && members.length > 1) {
+        const center = members.reduce((sum, member) => sum.add(member.object.position), new Vector3()).multiplyScalar(1 / members.length);
+        center.y = wanderTarget.y;
+        wanderTarget.lerp(center, 0.38);
+      }
       const aggressive = animal.kind === "crocodile" || animal.kind === "snake" || provokedBoar;
       const target = state === "alerted"
         ? aggressive
           ? new Vector3(player.x, animal.object.position.y, player.z)
           : animal.object.position.clone().multiplyScalar(2).sub(new Vector3(player.x, animal.object.position.y, player.z))
-        : wanderTarget;
+        : state === "drinking" && animal.wildlifeWaterTarget
+          ? animal.wildlifeWaterTarget.clone()
+          : wanderTarget;
       const direction = target.sub(animal.object.position);
       direction.y = 0;
       for (const other of wildlife) {
@@ -3780,6 +3922,10 @@ export class TropicalWorld {
           direction.z += separationZ * strength;
         }
       }
+      if (state === "drinking" && direction.lengthSq() < 1.8 ** 2) {
+        direction.set(0, 0, 0);
+        animal.object.rotation.x = 0.18;
+      }
       if (direction.lengthSq() > 0.06 && state !== "feeding") {
         direction.normalize();
         const speed = state === "alerted"
@@ -3792,7 +3938,7 @@ export class TropicalWorld {
           || animal.kind === "turtle" && nextGround > 0.04 && nextGround < 3
           || animal.kind === "crocodile" && nextGround > -0.45 && nextGround < 3.6
           || nextGround > 0.4;
-        if (habitatValid && (state === "alerted" || distanceSquaredXZ({ x: nextX, y: nextGround, z: nextZ }, home) < (orbitRadius + 8) ** 2)) {
+        if (habitatValid && (state === "alerted" || state === "drinking" || distanceSquaredXZ({ x: nextX, y: nextGround, z: nextZ }, home) < (orbitRadius + 8) ** 2)) {
           animal.object.position.x = nextX;
           animal.object.position.z = nextZ;
           if (animal.kind === "bird") {
@@ -3802,7 +3948,8 @@ export class TropicalWorld {
           animal.object.rotation.y = Math.atan2(direction.x, direction.z);
         }
         this.setEntityAnimation(animal, state === "alerted" ? "Run" : animal.kind === "wild_boar" || animal.kind === "crocodile" ? "Walk" : "Idle_Peck");
-      } else this.setEntityAnimation(animal, state === "feeding" ? "Eat" : "Idle");
+        this.maybeSpawnWildlifeTrack(animal);
+      } else this.setEntityAnimation(animal, state === "feeding" || state === "drinking" ? "Eat" : "Idle");
 
       if (animal.kind === "wild_boar" && provokedBoar && distanceToPlayer < 1.35 && animal.cooldown <= 0) {
         animal.cooldown = 4;
@@ -3817,6 +3964,65 @@ export class TropicalWorld {
         events.push({ type: "player-poison", text: "Eine Giftschlange beißt dich – du bist vergiftet!" });
       }
     }
+  }
+
+  private maybeSpawnWildlifeTrack(animal: WorldEntity): void {
+    const kind = animal.kind;
+    if (
+      (kind !== "wild_boar" && kind !== "chicken" && kind !== "turtle" && kind !== "crocodile")
+      || (animal.wildlifeTrackCooldown ?? 0) > 0
+    ) return;
+    const ground = this.heightAt(animal.object.position.x, animal.object.position.z);
+    if (ground < 0.12) return;
+    const lastPosition = animal.wildlifeLastTrackPosition ?? animal.home;
+    if (lastPosition && distanceSquaredXZ(lastPosition, animal.object.position) < 1.55 ** 2) return;
+
+    const track = createWildlifeTrackVisual(kind);
+    track.position.set(animal.object.position.x, ground + 0.025, animal.object.position.z);
+    track.rotation.y = animal.object.rotation.y;
+    this.wildlifeTrackGroup.add(track);
+    this.wildlifeTracks.push({ object: track, ageSeconds: 0, lifetimeSeconds: 68 });
+    animal.wildlifeLastTrackPosition = animal.object.position.clone();
+    animal.wildlifeTrackCooldown = kind === "turtle" || kind === "crocodile" ? 3.2 : 2.1;
+
+    if (this.wildlifeTracks.length > 120) this.removeWildlifeTrack(0);
+  }
+
+  private updateWildlifeTracks(dt: number): void {
+    for (let index = this.wildlifeTracks.length - 1; index >= 0; index -= 1) {
+      const track = this.wildlifeTracks[index]!;
+      track.ageSeconds += dt;
+      if (track.ageSeconds >= track.lifetimeSeconds) {
+        this.removeWildlifeTrack(index);
+        continue;
+      }
+      const opacity = 0.34 * (1 - smoothstep(0.38, 1, track.ageSeconds / track.lifetimeSeconds));
+      track.object.traverse((part) => {
+        if (!(part instanceof Mesh)) return;
+        const materials = Array.isArray(part.material) ? part.material : [part.material];
+        for (const material of materials) {
+          if (material instanceof MeshBasicMaterial || material instanceof MeshStandardMaterial) material.opacity = opacity;
+        }
+      });
+    }
+  }
+
+  private removeWildlifeTrack(index: number): void {
+    const [track] = this.wildlifeTracks.splice(index, 1);
+    if (!track) return;
+    this.wildlifeTrackGroup.remove(track.object);
+    const geometries = new Set<BufferGeometry>();
+    const materials = new Set<MeshBasicMaterial | MeshStandardMaterial>();
+    track.object.traverse((part) => {
+      if (!(part instanceof Mesh)) return;
+      geometries.add(part.geometry);
+      const partMaterials = Array.isArray(part.material) ? part.material : [part.material];
+      for (const material of partMaterials) {
+        if (material instanceof MeshBasicMaterial || material instanceof MeshStandardMaterial) materials.add(material);
+      }
+    });
+    for (const geometry of geometries) geometry.dispose();
+    for (const material of materials) material.dispose();
   }
 
   private updateSnakeAnimation(animal: WorldEntity, state: WildlifeBehaviorState, phase: number): void {
@@ -5544,45 +5750,110 @@ function createOceanMaterial(): ShaderMaterial {
       uTime: { value: 0 },
       uDeep: { value: new Color(0x075b78) },
       uShallow: { value: new Color(0x37c6c5) },
+      uWaveHeight: { value: 0.14 },
+      uWaveSpeed: { value: 0.92 },
+      uChoppiness: { value: 0.26 },
+      uFoamStrength: { value: 0.08 },
+      uWind: { value: new Vector2(0.84, 0.55) },
+      uTideHeight: { value: 0 },
     },
     vertexShader: `
       uniform float uTime;
-      varying float vWave;
+      uniform float uWaveHeight;
+      uniform float uWaveSpeed;
+      uniform float uChoppiness;
+      uniform vec2 uWind;
+      uniform float uTideHeight;
+      varying float vCrest;
       varying vec3 vWorld;
       void main() {
         vec3 p = position;
-        float wave = sin(p.x * 0.055 + uTime * 1.1) * 0.08 + cos(p.z * 0.07 - uTime * 0.8) * 0.06;
-        p.y += wave;
-        vWave = wave;
+        vec4 baseWorld = modelMatrix * vec4(position, 1.0);
+        vec2 crossWind = vec2(-uWind.y, uWind.x);
+        float alongWind = dot(baseWorld.xz, uWind);
+        float acrossWind = dot(baseWorld.xz, crossWind);
+        float primaryPhase = alongWind * 0.055 + uTime * 1.05 * uWaveSpeed;
+        float crossPhase = acrossWind * 0.083 - uTime * 0.82 * uWaveSpeed;
+        float ripplePhase = (baseWorld.x + baseWorld.z) * 0.17 + uTime * 1.45 * uWaveSpeed;
+        float primary = sin(primaryPhase) * uWaveHeight * 0.58;
+        float crossWave = cos(crossPhase) * uWaveHeight * 0.31;
+        float ripple = sin(ripplePhase) * uWaveHeight * 0.11;
+        p.y += uTideHeight + primary + crossWave + ripple;
+        p.xz += uWind * cos(primaryPhase) * uWaveHeight * uChoppiness * 0.12;
+        vCrest = sin(primaryPhase) * 0.62 + cos(crossPhase) * 0.27 + sin(ripplePhase) * 0.11;
         vec4 world = modelMatrix * vec4(p, 1.0);
         vWorld = world.xyz;
         gl_Position = projectionMatrix * viewMatrix * world;
       }
     `,
     fragmentShader: `
+      uniform float uTime;
       uniform vec3 uDeep;
       uniform vec3 uShallow;
-      varying float vWave;
+      uniform float uChoppiness;
+      uniform float uFoamStrength;
+      uniform vec2 uWind;
+      varying float vCrest;
       varying vec3 vWorld;
       void main() {
-        float bands = sin(vWorld.x * 0.14 + vWorld.z * 0.09) * 0.5 + 0.5;
-        vec3 color = mix(uDeep, uShallow, 0.28 + bands * 0.12 + vWave * 0.8);
-        gl_FragColor = vec4(color, 0.72);
+        float movingBands = sin(dot(vWorld.xz, uWind) * 0.14 - uTime * 0.5) * 0.5 + 0.5;
+        vec3 normal = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+        if (normal.y < 0.0) normal = -normal;
+        vec3 viewDirection = normalize(cameraPosition - vWorld);
+        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 2.2);
+        float crest = smoothstep(0.7 - uFoamStrength * 0.18, 0.96, vCrest * 0.5 + 0.5) * uFoamStrength;
+        vec3 color = mix(uDeep, uShallow, 0.25 + movingBands * 0.12 + fresnel * 0.28);
+        color *= 1.0 - uChoppiness * 0.14;
+        color = mix(color, vec3(0.88, 0.97, 0.95), crest * 0.82);
+        gl_FragColor = vec4(color, 0.7 + fresnel * 0.08 + crest * 0.12);
       }
     `,
   });
 }
 
-function createFoamRing(x: number, z: number, radiusX: number, radiusZ: number): Mesh {
+function createFoamRing(x: number, z: number, radiusX: number, radiusZ: number): Mesh<RingGeometry, ShaderMaterial> {
   const geometry = new RingGeometry(0.965, 1.02, 128, 1);
-  const material = new MeshBasicMaterial({
-    color: 0xdff8ed,
+  const material = new ShaderMaterial({
     transparent: true,
-    opacity: 0.42,
     depthWrite: false,
     side: DoubleSide,
+    uniforms: {
+      uTime: { value: 0 },
+      uStrength: { value: 0.76 },
+      uTideHeight: { value: 0 },
+      uColor: { value: new Color(0xdff8ed) },
+    },
+    vertexShader: `
+      uniform float uTime;
+      uniform float uTideHeight;
+      varying float vRadius;
+      varying float vAngle;
+      void main() {
+        vec3 p = position;
+        vRadius = length(p.xy);
+        vAngle = atan(p.y, p.x);
+        float pulse = sin(vAngle * 7.0 - uTime * 1.65) * 0.004 + sin(vAngle * 3.0 + uTime * 0.8) * 0.003;
+        p.xy *= 1.0 + pulse;
+        p.z += uTideHeight + sin(vAngle * 4.0 - uTime * 1.25) * 0.025;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uStrength;
+      uniform vec3 uColor;
+      varying float vRadius;
+      varying float vAngle;
+      void main() {
+        float ringMask = smoothstep(0.965, 0.982, vRadius) * (1.0 - smoothstep(0.998, 1.02, vRadius));
+        float brokenFoam = smoothstep(-0.28, 0.5, sin(vAngle * 17.0 + uTime * 1.1) + sin(vAngle * 9.0 - uTime * 0.73) * 0.55);
+        float alpha = ringMask * (0.18 + brokenFoam * 0.36) * uStrength;
+        gl_FragColor = vec4(uColor, alpha);
+      }
+    `,
   });
   const foam = new Mesh(geometry, material);
+  foam.name = "Animierte Brandung";
   foam.position.set(x, SEA_LEVEL + 0.08, z);
   foam.rotation.x = -Math.PI / 2;
   foam.scale.set(radiusX, radiusZ, 1);
@@ -6002,6 +6273,36 @@ function createCrabVisual(color = 0xd65d32): Group {
     const claw = new Mesh(new SphereGeometry(0.13, 7, 5), material);
     claw.position.set(side * 0.43, 0.08, 0.18);
     group.add(claw);
+  }
+  return group;
+}
+
+function createWildlifeTrackVisual(kind: Exclude<WildlifeKind, "bird" | "snake">): Group {
+  const group = new Group();
+  group.name = `Tierspur: ${kind}`;
+  const isLarge = kind === "wild_boar" || kind === "crocodile";
+  const isReptile = kind === "turtle" || kind === "crocodile";
+  const material = new MeshBasicMaterial({
+    color: isReptile ? 0x4d533d : 0x514331,
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
+  });
+  const padGeometry = new SphereGeometry(isLarge ? 0.18 : 0.11, 7, 4);
+  const spacing = isLarge ? 0.3 : 0.19;
+  for (const side of [-1, 1]) {
+    const pad = new Mesh(padGeometry, material);
+    pad.position.set(side * spacing, 0, side * -0.16);
+    pad.scale.set(isReptile ? 1.45 : 0.85, 0.055, isReptile ? 0.72 : 1.35);
+    group.add(pad);
+    if (kind === "chicken") {
+      for (const toeOffset of [-0.08, 0, 0.08]) {
+        const toe = new Mesh(new SphereGeometry(0.035, 5, 3), material);
+        toe.position.set(side * spacing + toeOffset, 0, side * -0.25);
+        toe.scale.set(0.65, 0.04, 2.2);
+        group.add(toe);
+      }
+    }
   }
   return group;
 }
