@@ -150,7 +150,7 @@ describe('WORLD_MANIFEST', () => {
     expect(counts).toEqual({
       loose_stick: 32,
       loose_stone: 12,
-      fiber_plant: 16,
+      fiber_plant: 17,
       palm_tree: 10,
       coconut: 8,
       crab: 6,

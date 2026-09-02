@@ -25,6 +25,15 @@ describe('Inventory', () => {
     expect(inventory.usedSlots).toBe(1);
   });
 
+  it('stores each packed workbench in its own inventory slot', () => {
+    const inventory = new Inventory(2);
+    expect(inventory.add('portable_workbench', 2)).toEqual({ added: 2, remainder: 0 });
+    expect(inventory.stacks).toEqual([
+      { itemId: 'portable_workbench', quantity: 1 },
+      { itemId: 'portable_workbench', quantity: 1 },
+    ]);
+  });
+
   it('removes up to the available amount and reports missing quantity', () => {
     const inventory = new Inventory(4, [{ itemId: 'stick', quantity: 7 }]);
     expect(inventory.remove('stick', 4)).toEqual({ removed: 4, missing: 0 });

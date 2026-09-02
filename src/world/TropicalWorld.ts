@@ -1357,7 +1357,8 @@ export class TropicalWorld {
     object.userData.entityId = id;
     this.scene.add(object);
     this.interactiveObjects.push(object);
-    this.entities.set(id, { id, kind: "building", object, available: true, amount: 1, hitPoints: 100, maxHitPoints: 100, cooldown: 0 });
+    const entity: WorldEntity = { id, kind: "building", object, available: true, amount: 1, hitPoints: 100, maxHitPoints: 100, cooldown: 0 };
+    this.entities.set(id, entity);
     const state: BuildingState = {
       id,
       type,
@@ -1374,12 +1375,23 @@ export class TropicalWorld {
     };
     this.buildings.set(id, state);
     this.buildingObjects.set(id, object);
-    this.addBuildingCollider(type, position, rotationY);
+    const collider = this.addBuildingCollider(type, position, rotationY);
+    if (collider) entity.collider = collider;
     return state;
   }
 
   public getBuilding(id: string): BuildingState | null {
     return this.buildings.get(id) ?? null;
+  }
+
+  public pickupWorkbench(id: string): boolean {
+    const building = this.buildings.get(id);
+    const entity = this.entities.get(id);
+    if (!building || building.type !== "workbench" || !entity?.available) return false;
+    this.buildings.delete(id);
+    this.buildingObjects.delete(id);
+    this.removeEntity(entity);
+    return true;
   }
 
   public advanceStoredFoodSpoilage(deltaSeconds: number): number {
@@ -4585,23 +4597,21 @@ export class TropicalWorld {
     return heights.map((height) => clamp(position.y - HUT_FOUNDATION_THICKNESS - height + 0.12, 0.28, 2.75)) as unknown as FoundationSupportDepths;
   }
 
-  private addBuildingCollider(type: BuildingState["type"], position: Vec3Like, rotationY: number): void {
-    if (type === "campfire") return;
+  private addBuildingCollider(type: BuildingState["type"], position: Vec3Like, rotationY: number): ReturnType<RapierPhysicsWorld["addFixedCuboid"]> | null {
+    if (type === "campfire") return null;
     if (type === "hut_foundation") {
-      this.physics.addFixedCuboid(
+      return this.physics.addFixedCuboid(
         { x: position.x, y: position.y - HUT_FOUNDATION_THICKNESS / 2, z: position.z },
         { x: HUT_HALF_SIZE, y: HUT_FOUNDATION_THICKNESS / 2, z: HUT_HALF_SIZE },
         rotationY,
       );
-      return;
     }
     if (type === "hut_wall") {
-      this.physics.addFixedCuboid(
+      return this.physics.addFixedCuboid(
         { x: position.x, y: position.y + HUT_WALL_HEIGHT / 2, z: position.z },
         { x: HUT_HALF_SIZE, y: HUT_WALL_HEIGHT / 2, z: 0.12 },
         rotationY,
       );
-      return;
     }
     if (type === "hut_doorway") {
       const cosine = Math.cos(rotationY);
@@ -4613,9 +4623,9 @@ export class TropicalWorld {
           rotationY,
         );
       }
-      return;
+      return null;
     }
-    if (type === "hut_roof") return;
+    if (type === "hut_roof") return null;
     const size = type === "shelter"
       ? { x: 1.6, y: 1.1, z: 1.3 }
       : type === "bed"
@@ -4623,7 +4633,7 @@ export class TropicalWorld {
         : type === "chest"
           ? { x: 0.7, y: 0.55, z: 0.5 }
           : { x: 1, y: 0.7, z: 0.65 };
-    this.physics.addFixedCuboid({ x: position.x, y: position.y + size.y, z: position.z }, size, rotationY);
+    return this.physics.addFixedCuboid({ x: position.x, y: position.y + size.y, z: position.z }, size, rotationY);
   }
 
   private overlapsBuilding(position: Vec3Like, radius: number): boolean {
@@ -5902,6 +5912,12 @@ function createProceduralPalm(): Group {
 }
 
 function createResourceVisual(kind: ItemId, assets: AssetService): Group {
+  if (kind === "portable_workbench") {
+    const workbench = createBuildVisual("workbench", assets);
+    normalizeMaxDimension(workbench, 0.78);
+    workbench.name = "Verpackte Werkbank";
+    return workbench;
+  }
   if (kind === "climbing_kit") return createClimbingKitVisual();
   if (kind === "shovel") return createShovelVisual();
   if (kind === "shovel_blueprint" || kind === "giant_island_map") return createDocumentVisual(kind);
@@ -5998,7 +6014,7 @@ function createResourceVisual(kind: ItemId, assets: AssetService): Group {
   } else if (kind === "cloth") {
     material.color.set(0xe8dfbf);
     mesh = new Mesh(new BoxGeometry(0.42, 0.08, 0.35), material);
-  } else if (kind === "bandage") {
+  } else if (kind === "bandage" || kind === "simple_bandage") {
     material.color.set(0xe9e2c9);
     mesh = new Mesh(new BoxGeometry(0.4, 0.09, 0.22), material);
   } else if (kind === "herbal_antidote") {
@@ -6944,6 +6960,7 @@ function labelForKind(kind: WorldEntityKind): string {
     mango: "Mango",
     healing_herb: "Mangroven-Heilkraut",
     bandage: "Kräuterverband",
+    simple_bandage: "Einfacher Verband",
     herbal_antidote: "Pflanzliches Gegengift",
     flower_tonic: "Blütentonikum",
     whetstone: "Riff-Wetzstein",
@@ -6958,6 +6975,7 @@ function labelForKind(kind: WorldEntityKind): string {
     shovel_blueprint: "Schaufel-Bauplan",
     shovel: "Improvisierte Schaufel",
     giant_island_map: "Karte der Rieseninsel",
+    portable_workbench: "Verpackte Werkbank",
     palm: "Palme",
     tree: "Baum",
     wild_boar: "Wildschwein",

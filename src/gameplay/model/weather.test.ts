@@ -3,11 +3,12 @@ import { DAY_LENGTH_SECONDS } from './survival';
 import { getWeatherState, weatherState } from './weather';
 
 describe('Wetter', () => {
-  it('liefert einen reproduzierbaren Tagesverlauf mit Regen, Hitze und Gewitter', () => {
-    const states = Array.from({ length: 10 }, (_, index) =>
-      getWeatherState(1, index * DAY_LENGTH_SECONDS / 10).kind,
+  it('liefert einen reproduzierbaren Tagesverlauf mit seltenen Regenphasen', () => {
+    const states = Array.from({ length: 12 }, (_, index) =>
+      getWeatherState(1, index * DAY_LENGTH_SECONDS / 12).kind,
     );
     expect(states).toEqual(expect.arrayContaining(['rain', 'heat', 'storm']));
+    expect(states.filter((kind) => kind === 'rain' || kind === 'storm')).toHaveLength(2);
     expect(getWeatherState(1, 240)).toEqual(getWeatherState(1, 240));
   });
 

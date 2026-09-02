@@ -8,7 +8,7 @@ import { weatherState } from "../gameplay/model/weather";
 import { createBuildVisual, createLoreLetterVisual, ISLAND_TERRAIN_STRUCTURES, ISLAND_WILDLIFE, TropicalWorld, WORLD_SCENERY_MODEL_IDS } from "./TropicalWorld";
 
 function createWorld(assets: AssetService = { createModel: () => null } as unknown as AssetService): TropicalWorld {
-  const physics = { addFixedCuboid: () => ({}) } as unknown as RapierPhysicsWorld;
+  const physics = { addFixedCuboid: () => ({}), removeColliderBody: () => undefined } as unknown as RapierPhysicsWorld;
   return new TropicalWorld(physics, assets);
 }
 
@@ -49,6 +49,25 @@ function groupByKey<T>(values: readonly T[], keyOf: (value: T) => string): Map<s
 }
 
 describe("TropicalWorld Bauplatzregeln", () => {
+  it("entfernt eine aufgehobene Werkbank samt Kollision und aus dem Spielstand", () => {
+    const removedColliders: unknown[] = [];
+    const collider = { id: "workbench-collider" };
+    const physics = {
+      addFixedCuboid: () => collider,
+      removeColliderBody: (removed: unknown) => removedColliders.push(removed),
+    } as unknown as RapierPhysicsWorld;
+    const world = new TropicalWorld(physics, { createModel: () => null } as unknown as AssetService);
+    const workbench = world.createBuilding("workbench", { x: 0, y: 1, z: 0 }, 0);
+
+    expect(world.pickupWorkbench(workbench.id)).toBe(true);
+    expect(world.getBuilding(workbench.id)).toBeNull();
+    expect(world.serialize().buildings).toHaveLength(0);
+    expect(removedColliders).toEqual([collider]);
+    expect(findEntityObject(world, workbench.id).visible).toBe(false);
+    expect(world.pickupWorkbench(workbench.id)).toBe(false);
+    world.dispose();
+  });
+
   it("stellt gefundene Briefe als sichtbares Pergament mit Siegel dar", () => {
     const letter = createLoreLetterVisual();
     expect(letter.children.length).toBe(6);

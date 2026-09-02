@@ -154,6 +154,9 @@ export interface RecipeViewModel {
 }
 
 export interface CraftingViewModel {
+  station: 'hand' | 'workbench';
+  title: string;
+  hint: string;
   categories: readonly string[];
   activeCategory?: string;
   recipes: readonly RecipeViewModel[];

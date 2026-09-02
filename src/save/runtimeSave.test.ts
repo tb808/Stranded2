@@ -108,7 +108,7 @@ describe("RuntimeSaveV1", () => {
     save.player.conditions = { brackwaterSicknessSeconds: 0, poisonSecondsRemaining: 900 };
     expect(isRuntimeSaveV1(save)).toBe(true);
 
-    save.player.conditions.poisonSecondsRemaining = 1_261;
+    save.player.conditions.poisonSecondsRemaining = 1_801;
     expect(isRuntimeSaveV1(save)).toBe(false);
     delete save.player.conditions.poisonSecondsRemaining;
     expect(isRuntimeSaveV1(save)).toBe(true);
@@ -130,7 +130,7 @@ describe("RuntimeSaveV1", () => {
     save.player.inventory = [{ itemId: "raw_fish", quantity: 2, spoilageSecondsRemaining: 200 }];
     expect(isRuntimeSaveV1(save)).toBe(true);
 
-    save.player.inventory[0].spoilageSecondsRemaining = 421;
+    save.player.inventory[0].spoilageSecondsRemaining = 601;
     expect(isRuntimeSaveV1(save)).toBe(false);
     save.player.inventory = [{ itemId: "stone", quantity: 1, spoilageSecondsRemaining: 100 }];
     expect(isRuntimeSaveV1(save)).toBe(false);

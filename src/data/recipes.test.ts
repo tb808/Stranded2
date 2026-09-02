@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getMaxDurability, ITEM_CATALOG } from './items';
-import { RECIPE_CATALOG } from './recipes';
+import { craftingStationFor, RECIPE_CATALOG } from './recipes';
 
 describe('RECIPE_CATALOG', () => {
   it('contains the exact planned ingredient quantities', () => {
@@ -103,6 +103,7 @@ describe('RECIPE_CATALOG', () => {
         { itemId: 'healing_herb', quantity: 1 },
         { itemId: 'cloth', quantity: 1 },
       ],
+      simple_bandage: [{ itemId: 'fiber', quantity: 3 }],
       herbal_antidote: [
         { itemId: 'healing_herb', quantity: 2 },
         { itemId: 'coconut_shell', quantity: 1 },
@@ -158,5 +159,16 @@ describe('RECIPE_CATALOG', () => {
     expect(getMaxDurability('stone_axe')).toBe(80);
     expect(getMaxDurability('shovel')).toBe(70);
     expect(RECIPE_CATALOG.shovel.requiredBlueprint).toBe('shovel_blueprint');
+  });
+
+  it('keeps essential hand recipes separate from workbench recipes', () => {
+    expect(craftingStationFor(RECIPE_CATALOG.workbench)).toBe('hand');
+    expect(craftingStationFor(RECIPE_CATALOG.building_hammer)).toBe('hand');
+    expect(craftingStationFor(RECIPE_CATALOG.bandage)).toBe('hand');
+    expect(craftingStationFor(RECIPE_CATALOG.simple_bandage)).toBe('hand');
+    expect(craftingStationFor(RECIPE_CATALOG.fishing_rod)).toBe('workbench');
+    expect(craftingStationFor(RECIPE_CATALOG.backpack)).toBe('workbench');
+    expect(craftingStationFor(RECIPE_CATALOG.raft_base)).toBe('workbench');
+    expect(craftingStationFor(RECIPE_CATALOG.paddle)).toBe('workbench');
   });
 });

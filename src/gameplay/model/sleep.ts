@@ -27,7 +27,8 @@ export function getTimeOfDayFraction(dayElapsedSeconds: number): number {
         ((elapsed - DAYLIGHT_DURATION_SECONDS) / NIGHT_DURATION_SECONDS) *
           (1 - NIGHT_START_FRACTION + NIGHT_END_FRACTION)
       ) % 1;
-  return Math.round(timeOfDay * 1_000_000_000_000) / 1_000_000_000_000;
+  const roundedTimeOfDay = Math.round(timeOfDay * 1_000_000_000_000) / 1_000_000_000_000;
+  return roundedTimeOfDay % 1;
 }
 
 export function isNightTime(dayElapsedSeconds: number): boolean {

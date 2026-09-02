@@ -120,7 +120,7 @@ export interface WorldManifest {
 const START_ISLAND_RESOURCES = [
   { sourceId: 'loose_stick', count: 32, yield: [{ itemId: 'stick', quantity: 1 }] },
   { sourceId: 'loose_stone', count: 12, yield: [{ itemId: 'stone', quantity: 1 }] },
-  { sourceId: 'fiber_plant', count: 16, yield: [{ itemId: 'fiber', quantity: 4 }] },
+  { sourceId: 'fiber_plant', count: 17, yield: [{ itemId: 'fiber', quantity: 4 }] },
   {
     sourceId: 'palm_tree',
     count: 10,

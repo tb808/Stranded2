@@ -25,10 +25,12 @@ export type ItemId =
   | 'mango'
   | 'healing_herb'
   | 'bandage'
+  | 'simple_bandage'
   | 'herbal_antidote'
   | 'flower_tonic'
   | 'whetstone'
   | 'lashing'
+  | 'portable_workbench'
   | 'woven_shirt'
   | 'backpack'
   | 'stone_knife'
@@ -203,6 +205,12 @@ export const ITEM_CATALOG = {
     category: 'medical',
     stackLimit: 8,
   },
+  simple_bandage: {
+    id: 'simple_bandage',
+    label: 'Einfacher Verband',
+    category: 'medical',
+    stackLimit: 12,
+  },
   herbal_antidote: {
     id: 'herbal_antidote',
     label: 'Pflanzliches Gegengift',
@@ -226,6 +234,12 @@ export const ITEM_CATALOG = {
     label: 'Seilbindung',
     category: 'component',
     stackLimit: 16,
+  },
+  portable_workbench: {
+    id: 'portable_workbench',
+    label: 'Verpackte Werkbank',
+    category: 'component',
+    stackLimit: 1,
   },
   woven_shirt: {
     id: 'woven_shirt',

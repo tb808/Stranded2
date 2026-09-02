@@ -46,7 +46,13 @@ export class GamePanelView {
   private readonly actions: GamePanelActions;
   private activePanel: UiPanel | null = null;
   private inventory: InventoryViewModel = { slots: [] };
-  private crafting: CraftingViewModel = { categories: [], recipes: [] };
+  private crafting: CraftingViewModel = {
+    station: 'hand',
+    title: 'Handwerk',
+    hint: 'Einfache Dinge, die du ohne feste Arbeitsfläche herstellen kannst.',
+    categories: [],
+    recipes: [],
+  };
   private build: BuildViewModel = { categories: [], options: [] };
   private storage: StorageViewModel = {
     player: { slots: [] },
@@ -77,7 +83,7 @@ export class GamePanelView {
     nav.setAttribute('aria-label', 'Spielmenüs');
     const tabs: ReadonlyArray<[UiPanel, string, string]> = [
       ['inventory', 'Rucksack', 'I'],
-      ['crafting', 'Herstellen', 'C'],
+      ['crafting', 'Handwerk', 'C'],
       ['build', 'Bauen', 'B'],
     ];
     for (const [panel, label, key] of tabs) {
@@ -181,12 +187,19 @@ export class GamePanelView {
         : undefined;
     const meta: Record<UiPanel, [string, string]> = {
       inventory: [this.inventory.title ?? 'Rucksack', 'I'],
-      crafting: ['Herstellen', 'C'],
+      crafting: [this.crafting.title, this.crafting.station === 'workbench' ? 'E' : 'C'],
       build: ['Bauplan wählen', 'B'],
       storage: [this.storage.title ?? 'Truhe', 'E'],
     };
     this.title.textContent = meta[this.activePanel][0];
     this.shortcut.textContent = meta[this.activePanel][1];
+    const craftingNav = this.navButtons.get('crafting');
+    if (craftingNav) {
+      const label = craftingNav.querySelector<HTMLElement>('.game-panel__nav-label');
+      const key = craftingNav.querySelector<HTMLElement>('.game-panel__nav-key');
+      if (label) label.textContent = this.crafting.station === 'workbench' ? 'Werkbank' : 'Handwerk';
+      if (key) key.textContent = this.crafting.station === 'workbench' ? 'E' : 'C';
+    }
     for (const [panel, control] of this.navButtons) {
       const active = panel === this.activePanel;
       control.dataset.active = String(active);
@@ -423,8 +436,34 @@ export class GamePanelView {
       list.append(element('p', 'catalog-list__empty', 'In dieser Kategorie sind noch keine Rezepte bekannt.'));
     }
 
-    const selected = this.crafting.recipes.find((recipe) => recipe.id === this.selectedRecipeId);
+    let selected = visibleRecipes.find((recipe) => recipe.id === this.selectedRecipeId);
+    if (!selected && visibleRecipes.length > 0) {
+      selected = visibleRecipes[0]!;
+      this.selectedRecipeId = selected.id;
+    }
+    const context = element(
+      'section',
+      'crafting-context',
+      element(
+        'div',
+        'crafting-context__mark',
+        this.crafting.station === 'workbench' ? 'WB' : 'OH',
+      ),
+      element(
+        'div',
+        'crafting-context__copy',
+        element(
+          'p',
+          'crafting-context__station',
+          this.crafting.station === 'workbench' ? 'Feste Arbeitsstation' : 'Ohne Werkbank',
+        ),
+        element('p', 'crafting-context__hint', this.crafting.hint),
+      ),
+      element('span', 'crafting-context__count', `${this.crafting.recipes.length} Rezepte`),
+    );
+    context.dataset.station = this.crafting.station;
     this.body.append(
+      context,
       categoryNav,
       element('div', 'catalog-layout', list, this.recipeDetail(selected)),
     );
@@ -439,7 +478,7 @@ export class GamePanelView {
         'span',
         'catalog-card__copy',
         element('strong', '', recipe.label),
-        element('small', '', recipe.canCraft ? 'Bereit' : recipe.lockedReason ?? 'Material fehlt'),
+        element('small', '', recipe.canCraft ? 'Herstellbar' : recipe.lockedReason ?? 'Material fehlt'),
       ),
     );
     control.type = 'button';

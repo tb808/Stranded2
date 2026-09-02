@@ -129,7 +129,7 @@ describe('save validation and migration', () => {
           stamina: 80,
           oxygen: 100,
           staminaRegenDelayRemaining: 0,
-          dayElapsedSeconds: 60,
+          dayElapsedSeconds: 300,
         },
       },
       placedBuildables: [],

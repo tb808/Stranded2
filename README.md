@@ -30,7 +30,7 @@ Die Zielinseln besitzen zusätzliche, handgesetzte Entdeckungsorte: eine ausgeba
 
 Die Dschungelbucht ist das ergiebige Jagd- und Vorratsrevier. Acht Wildschweine und zehn Hühner machen sie deutlich wildreicher; dort erlegte Tiere liefern außerdem mehr Fleisch als ihre Artgenossen auf anderen Inseln. Nur auf dem Boden der Dschungelbucht lässt sich ein Räuchergestell bauen. Eine Charge aus drei Stücken rohem Fleisch und einem Stock wird darin in ungefähr 90 Sekunden zu drei besonders sättigenden Portionen Räucherfleisch. Das Gestell kombiniert Feuerstelle und Fischergestell aus dem Kenney-Survival-Kit mit den rohen und gegarten Kenney-Fleischmodellen.
 
-Die Mangrovenbucht besitzt eine eigene Risiko-Belohnungs-Schleife: Achtzehn nachwachsende Heilkräuter stehen in den Revieren der dort heimischen Krokodile. Aus ihnen lassen sich Kräuterverbände und ein pflanzliches Gegengift herstellen. Das Wasser der Kanäle ist interaktives Brackwasser; es lindert den Durst nur kurz, verursacht danach aber eine zeitlich begrenzte Krankheit mit Lebensverlust und erhöhtem Wasserbedarf.
+Die Mangrovenbucht besitzt eine eigene Risiko-Belohnungs-Schleife: Achtzehn nachwachsende Heilkräuter stehen in den Revieren der dort heimischen Krokodile. Aus ihnen lassen sich Kräuterverbände gegen Schlangengift und ein pflanzliches Gegengift herstellen. Das Wasser der Kanäle ist interaktives Brackwasser; es lindert den Durst nur kurz, verursacht danach aber eine zeitlich begrenzte Krankheit mit Lebensverlust und erhöhtem Wasserbedarf.
 
 In den bewaldeten Inselregionen leben Giftschlangen mit einem eigenen animierten 3D-Modell. Ihr Biss verursacht eine Vergiftung, die kontinuierlich Leben abzieht und nach drei Spieltagen tödlich endet. Ein direkt benutztes Mangroven-Heilkraut oder das daraus hergestellte Gegengift neutralisiert das Gift.
 
@@ -46,7 +46,7 @@ Das Felsenriff ist das Tauch- und Werkzeugpflege-Revier. Acht einmalig sammelbar
 
 Die Wasserfallinsel dient als Regenerations- und Entdeckungsrevier. Wasser aus Quellsee und Nebelpool stillt den Durst vollständig, heilt 10 Gesundheit und füllt die Ausdauer. Direkt hinter dem großen Wasserschleier liegt ein einmalig plünderbares Versteck mit Stoff, Metallschrott und gegrilltem Fisch.
 
-Schwere körperliche Treffer durch Wildschweine, Krokodile und Haie verursachen blutende Verletzungen. Solange die Blutung aktiv ist, sinkt die Gesundheit fortlaufend – auch während des Schlafs. Ein aus Stoff und Mangroven-Heilkraut hergestellter Kräuterverband stoppt die Blutung und stellt 35 Gesundheit wieder her. Der Zustand wird im HUD mit `🩸 Blutung` angezeigt und in Spielständen gespeichert.
+Schwere körperliche Treffer durch Wildschweine, Krokodile und Haie verursachen blutende Verletzungen. Solange die Blutung aktiv ist, sinkt die Gesundheit fortlaufend – auch während des Schlafs. Ein einfacher Verband lässt sich überall per Hand aus drei Fasern herstellen, stoppt die Blutung und stellt 15 Gesundheit wieder her. Der Zustand wird im HUD mit `🩸 Blutung` angezeigt und in Spielständen gespeichert.
 
 Verderbliche Nahrung besitzt pro Stapel eine sichtbare Resthaltbarkeit und altert sowohl im Rucksack als auch in Truhen und während des Schlafs. Krabben, rohes Fleisch und roher Fisch halten einen Spieltag; gekochte Nahrung und Mangos zwei Spieltage; Räucherfleisch fünf Spieltage. Kokosnüsse bleiben durch ihre harte Schale haltbar. Abgelaufene Vorräte werden zu ungenießbarer `Verdorbener Nahrung`. Beim Umlagern und Speichern bleibt die jeweilige Resthaltbarkeit erhalten.
 
@@ -58,7 +58,7 @@ Die Mondklippen bilden eine windige Erkundungsprüfung. Auf hohen und exponierte
 
 Auf der Schatzsandbank ragt eine Truhe nur halb aus dem Sand. Direkt daneben liegt der Bauplan für eine improvisierte Schaufel aus Palmstamm, Stöcken und Seilbindung. Mit ausgewählter Schaufel kann die Truhe dauerhaft freigelegt und anschließend geöffnet werden. Darin liegt eine Karte zu einer riesigen Insel außerhalb des bekannten Archipels; diese Zielinsel ist bewusst noch nicht Teil der Welt- oder HUD-Karte.
 
-Zu den baubaren Survival-Objekten gehören Lagerfeuer, Schutzdach, Bett, Truhe, Werkbank und Palm-Destille. Das Schutzdach setzt den Respawnpunkt; im Bett kann nachts bis zum Morgen geschlafen werden. Jede Truhe besitzt 16 dauerhaft gespeicherte Plätze, zwischen denen ganze Itemstapel per Klick verschoben werden.
+Zu den baubaren Survival-Objekten gehören Lagerfeuer, Schutzdach, Bett, Truhe, Werkbank und Palm-Destille. Das Schutzdach setzt den Respawnpunkt; im Bett kann nachts bis zum Morgen geschlafen werden. Jede Truhe besitzt 16 dauerhaft gespeicherte Plätze, zwischen denen ganze Itemstapel per Klick verschoben werden. Mit ausgewähltem Bauhammer kann eine Werkbank per `E` eingepackt werden. Die verpackte Werkbank liegt anschließend im Inventar und lässt sich über „Benutzen“ oder „Ablegen“ ohne neue Materialkosten wieder platzieren.
 
 Regen und Gewitter kühlen die Spielfigur aus. Ohne angezogenes Schutzhemd oder ein brennendes Lagerfeuer in höchstens sechs Metern Entfernung sinkt die maximale Ausdauer langsam bis auf 35; in Wärme erholt sie sich wieder.
 

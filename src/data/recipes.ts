@@ -2,6 +2,7 @@ import type { BuildableId } from './buildables';
 import type { ItemAmount, ItemId } from './items';
 
 export type RecipeCategory = 'components' | 'tools' | 'survival' | 'building' | 'raft';
+export type CraftingStation = 'hand' | 'workbench';
 
 export type RecipeId =
   | 'lashing'
@@ -25,6 +26,7 @@ export type RecipeId =
   | 'fish_trap'
   | 'smoking_rack'
   | 'bandage'
+  | 'simple_bandage'
   | 'herbal_antidote'
   | 'flower_tonic'
   | 'woven_shirt'
@@ -301,6 +303,14 @@ export const RECIPE_CATALOG = {
     ],
     output: { kind: 'item', itemId: 'bandage', quantity: 1 },
   },
+  simple_bandage: {
+    id: 'simple_bandage',
+    label: 'Einfacher Verband',
+    category: 'survival',
+    craftDurationSeconds: 2,
+    ingredients: [{ itemId: 'fiber', quantity: 3 }],
+    output: { kind: 'item', itemId: 'simple_bandage', quantity: 1 },
+  },
   herbal_antidote: {
     id: 'herbal_antidote',
     label: 'Pflanzliches Gegengift',
@@ -426,3 +436,29 @@ export const RECIPE_CATALOG = {
 } as const satisfies Record<RecipeId, RecipeDefinition>;
 
 export const RECIPE_IDS = Object.freeze(Object.keys(RECIPE_CATALOG) as RecipeId[]);
+
+const WORKBENCH_RECIPE_IDS = new Set<RecipeId>([
+  'obsidian_knife',
+  'fishing_rod',
+  'climbing_kit',
+  'shovel',
+  'whetstone',
+  'chest',
+  'palm_still',
+  'rain_collector',
+  'fish_trap',
+  'smoking_rack',
+  'woven_shirt',
+  'backpack',
+  'hut_foundation',
+  'hut_wall',
+  'hut_doorway',
+  'hut_roof',
+  'raft_base',
+  'raft_deck',
+  'paddle',
+]);
+
+export function craftingStationFor(recipe: RecipeDefinition): CraftingStation {
+  return WORKBENCH_RECIPE_IDS.has(recipe.id) ? 'workbench' : 'hand';
+}

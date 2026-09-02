@@ -16,12 +16,14 @@ const WEATHER_SEQUENCE: readonly WeatherKind[] = [
   'clear',
   'heat',
   'clear',
-  'rain',
+  'clear',
   'rain',
   'clear',
-  'storm',
   'clear',
   'heat',
+  'clear',
+  'clear',
+  'storm',
   'clear',
 ];
 

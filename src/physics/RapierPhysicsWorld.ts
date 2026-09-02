@@ -163,7 +163,7 @@ export class RapierPhysicsWorld {
         RAPIER.ColliderDesc.cuboid(0.29, 0.22, 1.55)
           .setTranslation(x, 0, 0)
           .setDensity(0.28)
-          .setFriction(0.65),
+          .setFriction(0.32),
         body,
       );
     }
@@ -225,7 +225,11 @@ export class RapierPhysicsWorld {
       raft.body.addForce({ x: forward.x * force, y: 0, z: forward.z * force }, true);
     }
     if (Math.abs(steering) > 0.01) {
-      raft.body.addTorque({ x: 0, y: steering * 7 * clamp(planarSpeed / 1.5, 0.25, 1), z: 0 }, true);
+      const yawSpeed = Math.abs(raft.body.angvel().y);
+      if (yawSpeed < 1.4) {
+        const steeringStrength = 10 * clamp(planarSpeed / 1.2, 0.55, 1);
+        raft.body.addTorque({ x: 0, y: steering * steeringStrength, z: 0 }, true);
+      }
     }
   }
 
@@ -265,7 +269,9 @@ export class RapierPhysicsWorld {
       const waterY = oceanSurfaceHeight(worldPoint.x, worldPoint.z, elapsedSeconds, this.oceanConditions);
       const depth = waterY - worldPoint.y;
       if (depth <= 0) continue;
-      const lift = (mass * 9.81 * clamp(depth * 1.8, 0, 2.2)) / localPoints.length;
+      const pointVelocity = body.velocityAtPoint(worldPoint);
+      const liftFactor = clamp(depth * 8 - pointVelocity.y * 1.6, 0, 2.2);
+      const lift = (mass * 9.81 * liftFactor) / localPoints.length;
       body.addForceAtPoint({ x: 0, y: lift, z: 0 }, worldPoint, true);
     }
     const velocity = body.linvel();

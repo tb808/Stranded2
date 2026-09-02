@@ -31,9 +31,9 @@ describe('survival model', () => {
       staminaRegenDelaySeconds: 1,
       fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
     });
-    expect(DAYLIGHT_DURATION_SECONDS).toBe(300);
-    expect(NIGHT_DURATION_SECONDS).toBe(120);
-    expect(DAY_LENGTH_SECONDS).toBe(420);
+    expect(DAYLIGHT_DURATION_SECONDS).toBe(420);
+    expect(NIGHT_DURATION_SECONDS).toBe(180);
+    expect(DAY_LENGTH_SECONDS).toBe(600);
   });
 
   it('drains hunger and thirst at their fixed rates', () => {
@@ -139,8 +139,8 @@ describe('survival model', () => {
     expect(exhausted.health).toBeCloseTo(99.2);
   });
 
-  it('wraps the thirty-minute day clock', () => {
-    expect(advanceSurvival(state({ dayElapsedSeconds: 415 }), 10).dayElapsedSeconds).toBe(5);
+  it('wraps the ten-minute day clock', () => {
+    expect(advanceSurvival(state({ dayElapsedSeconds: 595 }), 10).dayElapsedSeconds).toBe(5);
   });
 
   it('rejects invalid time deltas', () => {

@@ -26,8 +26,8 @@ function state(patch: Partial<SurvivalState> = {}): SurvivalState {
 }
 
 describe('sleep helpers', () => {
-  it('teilt den siebenminütigen Zyklus in fünf Minuten Tag und zwei Minuten Nacht', () => {
-    expect(DAY_LENGTH_SECONDS).toBe(420);
+  it('teilt den zehnminütigen Zyklus in sieben Minuten Tag und drei Minuten Nacht', () => {
+    expect(DAY_LENGTH_SECONDS).toBe(600);
     expect(elapsedAt(NIGHT_START_FRACTION)).toBe(DAYLIGHT_DURATION_SECONDS);
     expect(DAY_LENGTH_SECONDS - elapsedAt(NIGHT_START_FRACTION)).toBe(NIGHT_DURATION_SECONDS);
   });

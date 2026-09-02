@@ -18,7 +18,14 @@ import { supportsWebGl2 } from "../core/webgl";
 import { BUILDABLE_CATALOG, CHEST_STORAGE_SLOTS, type BuildableId } from "../data/buildables";
 import { getMaxDurability, ITEM_CATALOG, type ItemId } from "../data/items";
 import { getLoreLetter, LORE_LETTERS } from "../data/loreLetters";
-import { RECIPE_CATALOG, RECIPE_IDS, type RecipeDefinition, type RecipeId } from "../data/recipes";
+import {
+  craftingStationFor,
+  RECIPE_CATALOG,
+  RECIPE_IDS,
+  type CraftingStation,
+  type RecipeDefinition,
+  type RecipeId,
+} from "../data/recipes";
 import { getIsland, WORLD_MANIFEST, type IslandId } from "../data/worldManifest";
 import {
   Inventory,
@@ -92,6 +99,7 @@ const ITEM_ICONS: Partial<Record<ItemId, string>> = {
   mango: "🥭",
   healing_herb: "🌱",
   bandage: "🩹",
+  simple_bandage: "🩹",
   herbal_antidote: "🧪",
   flower_tonic: "💗",
   whetstone: "🪨",
@@ -101,6 +109,7 @@ const ITEM_ICONS: Partial<Record<ItemId, string>> = {
   reef_stone: "◉",
   wildflower: "🌸",
   lashing: "➰",
+  portable_workbench: "🧰",
   stone_knife: "🔪",
   obsidian_knife: "🗡️",
   stone_axe: "🪓",
@@ -148,6 +157,7 @@ export class GameApp {
   private toolDurability: Partial<Record<ItemId, number>> = {};
   private selectedHotbarIndex = 0;
   private selectedBuild: BuildableId | null = null;
+  private placingStoredWorkbench = false;
   private buildRotation = 0;
   private buildPlacementValid = false;
   private buildPlacementReason = "";
@@ -169,6 +179,8 @@ export class GameApp {
   private pointerWasLocked = false;
   private suppressPointerPause = false;
   private currentCraftCategory = "Alle";
+  private craftingStation: CraftingStation = "hand";
+  private openingWorkbench = false;
   private currentBuildCategory = "Alle";
   private preparingWorld = false;
   private underwater = false;
@@ -921,6 +933,25 @@ export class GameApp {
         } else this.ui.addToast({ text: "Halte rohes Fleisch, einen rohen Fisch oder eine rohe Krabbe bereit.", tone: "info" });
       }
     } else if (building.type === "workbench") {
+      if (this.selectedItemId() === "building_hammer") {
+        const stored = this.inventory.add("portable_workbench", 1);
+        if (stored.remainder > 0) {
+          this.ui.addToast({ text: "Im Inventar ist kein freier Platz für die Werkbank.", tone: "warning" });
+        } else if (!world.pickupWorkbench(id)) {
+          this.inventory.remove("portable_workbench", 1);
+          this.ui.addToast({ text: "Die Werkbank konnte nicht aufgehoben werden.", tone: "warning" });
+        } else {
+          void this.audio.play("sfx.impact-wood-heavy", "sfx", 0.32);
+          this.ui.addToast({ text: "Werkbank eingepackt und ins Inventar gelegt.", tone: "success" });
+          void this.saveGame(false);
+        }
+        this.refreshUi();
+        return;
+      }
+      this.craftingStation = "workbench";
+      this.currentCraftCategory = "Alle";
+      this.openingWorkbench = true;
+      this.ui.updateCrafting(this.createCraftingViewModel());
       this.ui.openPanel("crafting");
     }
     this.refreshUi();
@@ -990,7 +1021,7 @@ export class GameApp {
     if (outcome.hit) void this.audio.play(tool === "stone_axe" ? "sfx.impact-wood-heavy" : "sfx.impact-generic-light", "sfx", 0.4);
   }
 
-  private craft(recipeId: RecipeId, amount: number): void {
+  private craft(recipeId: RecipeId, amount: number, bypassStation = false): void {
     const recipe: RecipeDefinition = RECIPE_CATALOG[recipeId];
     if (!recipe) return;
     if (recipe.requiredBlueprint && this.inventory.count(recipe.requiredBlueprint) === 0) {
@@ -998,12 +1029,12 @@ export class GameApp {
       return;
     }
     const count = clamp(Math.floor(amount), 1, 10);
-    if (recipe.category === "raft" && recipe.id !== "paddle" && !this.isNearWorkbench()) {
-      this.ui.addToast({ text: "Floßteile können nur in der Nähe einer Werkbank gefertigt werden.", tone: "warning" });
+    if (!bypassStation && craftingStationFor(recipe) === "workbench" && (this.craftingStation !== "workbench" || !this.isNearWorkbench())) {
+      this.ui.addToast({ text: "Dieses Rezept kann nur direkt an einer Werkbank hergestellt werden.", tone: "warning" });
       return;
     }
     if (recipe.output.kind === "buildable") {
-      this.selectBuild(recipe.output.buildableId);
+      this.selectBuild(recipe.output.buildableId, bypassStation);
       return;
     }
     let crafted = 0;
@@ -1023,30 +1054,46 @@ export class GameApp {
     this.refreshUi();
   }
 
-  private selectBuild(buildId: BuildableId): void {
+  private selectBuild(buildId: BuildableId, bypassStation = false): void {
     const recipe = RECIPE_CATALOG[buildId as RecipeId];
     if (!recipe || recipe.output.kind !== "buildable") return;
     if (this.inventory.count("building_hammer") === 0) {
       this.ui.addToast({ text: "Zum Bauen brauchst du einen Bauhammer.", tone: "warning" });
       return;
     }
-    if (recipe.category === "raft" && !this.isNearWorkbench()) {
-      this.ui.addToast({ text: "Floßteile werden an einer Werkbank vorbereitet.", tone: "warning" });
+    if (!bypassStation && craftingStationFor(recipe) === "workbench" && !this.isNearWorkbench()) {
+      this.ui.addToast({ text: "Dieser Bauplan muss zuerst an einer Werkbank vorbereitet werden.", tone: "warning" });
       return;
     }
     if (!this.inventory.canConsume(recipe.ingredients)) {
       this.ui.addToast({ text: "Nicht genügend Material für dieses Bauwerk.", tone: "warning" });
       return;
     }
+    this.beginBuildPlacement(buildId, false);
+  }
+
+  private beginBuildPlacement(buildId: BuildableId, storedWorkbench: boolean): void {
     this.selectedBuild = buildId;
-    this.buildRotation = 0;
+    this.placingStoredWorkbench = storedWorkbench;
+    // A newly placed raft should point away from the player in the direction
+    // they are looking. Otherwise its fixed world-space heading makes forward
+    // input run along many shorelines instead of out to sea.
+    this.buildRotation = buildId === "raft_base" ? this.yaw + Math.PI : 0;
     this.buildGhost.clear();
     const visual = createBuildVisual(buildId, this.assets);
     visual.traverse((object) => {
       if (object instanceof Mesh) object.material = new MeshBasicMaterial({ color: 0x5be58b, transparent: true, opacity: 0.55, depthWrite: false });
     });
     this.buildGhost.add(visual);
-    this.ui.addToast({ text: buildId.startsWith("hut_") ? "Bauteil an einen gelben Baupunkt führen: es rastet automatisch bündig ein." : "Bauposition wählen: Linksklick setzen, R drehen, B abbrechen.", tone: "info", durationMs: 5_500 });
+    this.ui.addToast({
+      text: storedWorkbench
+        ? "Werkbank platzieren: Linksklick setzen, R drehen, B abbrechen."
+        : buildId.startsWith("hut_")
+          ? "Bauteil an einen gelben Baupunkt führen: es rastet automatisch bündig ein."
+          : "Bauposition wählen: Linksklick setzen, R drehen, B abbrechen.",
+      tone: "info",
+      durationMs: 5_500,
+    });
     this.suppressPointerPause = true;
     this.requestPointerLock();
   }
@@ -1054,23 +1101,32 @@ export class GameApp {
   private placeSelectedBuild(): void {
     const world = this.world;
     if (!world || !this.selectedBuild) return;
+    const storedWorkbench = this.selectedBuild === "workbench" && this.placingStoredWorkbench;
     if (!this.buildPlacementValid) {
       this.ui.addToast({ text: this.buildPlacementReason || "Hier kann nicht gebaut werden.", tone: "warning" });
       return;
     }
-    const recipe = RECIPE_CATALOG[this.selectedBuild as RecipeId];
-    if (!recipe || !this.inventory.consume(recipe.ingredients)) {
-      this.ui.addToast({ text: "Die benötigten Materialien fehlen inzwischen.", tone: "warning" });
-      this.cancelBuild();
-      return;
+    if (storedWorkbench) {
+      if (this.inventory.remove("portable_workbench", 1).removed !== 1) {
+        this.ui.addToast({ text: "Die verpackte Werkbank fehlt inzwischen.", tone: "warning" });
+        this.cancelBuild();
+        return;
+      }
+    } else {
+      const recipe = RECIPE_CATALOG[this.selectedBuild as RecipeId];
+      if (!recipe || !this.inventory.consume(recipe.ingredients)) {
+        this.ui.addToast({ text: "Die benötigten Materialien fehlen inzwischen.", tone: "warning" });
+        this.cancelBuild();
+        return;
+      }
     }
     const placement = world.getPlacementPosition(this.camera, this.selectedBuild, this.buildRotation);
     if (this.selectedBuild === "raft_base") world.createRaftBase(placement.position, placement.rotationY);
     else if (this.selectedBuild === "raft_deck") world.addRaftDeck();
     else world.createBuilding(this.selectedBuild, placement.position, placement.rotationY);
-    this.damageTool("building_hammer", 1);
+    if (!storedWorkbench) this.damageTool("building_hammer", 1);
     void this.audio.play("sfx.impact-wood-heavy", "sfx", 0.4);
-    this.ui.addToast({ text: `${BUILDABLE_CATALOG[this.selectedBuild].label} gebaut.`, tone: "success" });
+    this.ui.addToast({ text: storedWorkbench ? "Werkbank wieder aufgestellt." : `${BUILDABLE_CATALOG[this.selectedBuild].label} gebaut.`, tone: "success" });
     this.cancelBuild();
     this.refreshUi();
   }
@@ -1095,6 +1151,7 @@ export class GameApp {
   private cancelBuild(): boolean {
     if (!this.selectedBuild) return false;
     this.selectedBuild = null;
+    this.placingStoredWorkbench = false;
     this.buildGhost.clear();
     this.buildGhost.visible = false;
     return true;
@@ -1104,7 +1161,10 @@ export class GameApp {
     const index = Number(instanceId.replace("slot-", ""));
     const stack = this.inventory.stacks[index];
     if (!stack) return;
-    if (stack.itemId === "coconut") {
+    if (stack.itemId === "portable_workbench") {
+      this.ui.closePanel();
+      this.beginBuildPlacement("workbench", true);
+    } else if (stack.itemId === "coconut") {
       this.inventory.remove("coconut", 1);
       this.inventory.add(ITEM_CATALOG.coconut.useByproduct.itemId, ITEM_CATALOG.coconut.useByproduct.quantity);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 5), thirst: Math.min(100, this.survival.thirst + 18) });
@@ -1141,20 +1201,24 @@ export class GameApp {
         this.ui.addToast({ text: "Das Mangroven-Heilkraut neutralisiert das Schlangengift.", tone: "success", durationMs: 6_000 });
       }
     } else if (stack.itemId === "bandage") {
-      if (!this.isBleeding && this.survival.health >= 100) {
-        this.ui.addToast({ text: "Du bist unverletzt und brauchst keinen Verband.", tone: "info" });
+      if (this.poisonSecondsRemaining <= 0) {
+        this.ui.addToast({ text: "Du bist nicht vergiftet und brauchst keinen Kräuterverband.", tone: "info" });
       } else {
         this.inventory.remove("bandage", 1);
-        const stoppedBleeding = this.isBleeding;
+        this.poisonSecondsRemaining = 0;
+        this.poisonCausedDeath = false;
+        this.patchVitals({ health: Math.min(100, this.survival.health + 20) });
+        this.ui.addToast({ text: "Kräuterverband angelegt: Das Schlangengift ist neutralisiert und 20 Gesundheit wurden wiederhergestellt.", tone: "success" });
+      }
+    } else if (stack.itemId === "simple_bandage") {
+      if (!this.isBleeding) {
+        this.ui.addToast({ text: "Du blutest nicht und brauchst keinen einfachen Verband.", tone: "info" });
+      } else {
+        this.inventory.remove("simple_bandage", 1);
         this.isBleeding = false;
         this.bleedingCausedDeath = false;
-        this.patchVitals({ health: Math.min(100, this.survival.health + 35) });
-        this.ui.addToast({
-          text: stoppedBleeding
-            ? "Verband angelegt: Die Blutung ist gestoppt und 35 Gesundheit wurden wiederhergestellt."
-            : "Verband angelegt: 35 Gesundheit wiederhergestellt.",
-          tone: "success",
-        });
+        this.patchVitals({ health: Math.min(100, this.survival.health + 15) });
+        this.ui.addToast({ text: "Einfachen Verband angelegt: Die Blutung ist gestoppt und 15 Gesundheit wurden wiederhergestellt.", tone: "success" });
       }
     } else if (stack.itemId === "herbal_antidote") {
       if (this.brackwaterSicknessSeconds <= 0 && this.poisonSecondsRemaining <= 0) {
@@ -1235,6 +1299,12 @@ export class GameApp {
     const stack = this.inventory.stacks[index];
     const position = this.physics?.getPlayerPosition();
     if (!stack || !position || !this.world) return;
+    if (stack.itemId === "portable_workbench") {
+      this.ui.closePanel();
+      this.beginBuildPlacement("workbench", true);
+      this.refreshUi();
+      return;
+    }
     if (this.isEquipped(stack.itemId)) {
       this.ui.addToast({ text: "Lege diese Ausrüstung zuerst über „Benutzen“ ab.", tone: "warning" });
       return;
@@ -1722,7 +1792,9 @@ export class GameApp {
                 ? "Fleisch räuchern / Charge prüfen"
               : building?.type === "palm_still" || building?.type === "rain_collector"
                 ? "Wasser trinken"
-                : "Werkbank benutzen";
+                : building?.type === "workbench" && this.selectedItemId() === "building_hammer"
+                  ? "Werkbank aufheben"
+                  : "Werkbank benutzen";
       return { key: "E", action, target: building ? BUILDABLE_CATALOG[building.type].label : label };
     }
     if (kind === "lore_letter") return { key: "E", action: "Lesen", target: label };
@@ -1757,8 +1829,10 @@ export class GameApp {
                 instanceId: `${instancePrefix}-${index}`,
                 itemId: stack.itemId,
                 label: ITEM_CATALOG[stack.itemId].label,
-                description: stack.itemId === "healing_herb"
-                  ? "Benutzen, um eine Vergiftung durch Schlangen zu heilen."
+                description: stack.itemId === "portable_workbench"
+                  ? "Benutzen oder Ablegen, um die Werkbank ohne neue Materialkosten wieder zu platzieren."
+                  : stack.itemId === "healing_herb"
+                    ? "Benutzen, um eine Vergiftung durch Schlangen zu heilen."
                   : stack.itemId === "spoiled_food"
                     ? "Verdorben und nicht mehr essbar."
                   : stack.itemId === "crab" || stack.itemId === "raw_meat" || stack.itemId === "raw_fish"
@@ -1766,8 +1840,10 @@ export class GameApp {
                   : ITEM_CATALOG[stack.itemId].category === "food"
                   ? `Kann über Benutzen verzehrt werden.${stack.spoilageSecondsRemaining === undefined ? "" : ` ${formatFoodFreshness(stack.spoilageSecondsRemaining)}.`}`
                   : ITEM_CATALOG[stack.itemId].category === "medical"
-                    ? stack.itemId === "bandage"
-                      ? "Anlegen, um eine Blutung zu stoppen und 35 Gesundheit wiederherzustellen."
+                    ? stack.itemId === "simple_bandage"
+                      ? "Anlegen, um eine Blutung zu stoppen und 15 Gesundheit wiederherzustellen."
+                      : stack.itemId === "bandage"
+                        ? "Anlegen, um Schlangengift zu neutralisieren und 20 Gesundheit wiederherzustellen."
                       : stack.itemId === "flower_tonic"
                         ? "Benutzen für 30 Gesundheit und volle Ausdauer."
                         : "Benutzen, um Krankheit und Schlangengift zu stoppen."
@@ -1818,41 +1894,49 @@ export class GameApp {
   }
 
   private createCraftingViewModel(): CraftingViewModel {
-    const categories = ["Alle", "Komponenten", "Werkzeuge", "Überleben", "Hüttenbau", "Floß"];
-    const categoryMap: Record<string, string> = { components: "Komponenten", tools: "Werkzeuge", survival: "Überleben", building: "Hüttenbau", raft: "Floß" };
-    const recipes = RECIPE_IDS.filter((id) => {
+    const categoryOrder = ["Komponenten", "Werkzeuge", "Versorgung", "Hüttenbau", "Floß"];
+    const categoryMap: Record<string, string> = { components: "Komponenten", tools: "Werkzeuge", survival: "Versorgung", building: "Hüttenbau", raft: "Floß" };
+    const stationRecipeIds = RECIPE_IDS.filter((id) => craftingStationFor(RECIPE_CATALOG[id]) === this.craftingStation);
+    const categories = [
+      "Alle",
+      ...categoryOrder.filter((category) => stationRecipeIds.some((id) => categoryMap[RECIPE_CATALOG[id].category] === category)),
+    ];
+    const activeCategory = categories.includes(this.currentCraftCategory) ? this.currentCraftCategory : "Alle";
+    const recipes = stationRecipeIds.filter((id) => {
       const recipe = RECIPE_CATALOG[id];
-      return this.currentCraftCategory === "Alle" || categoryMap[recipe.category] === this.currentCraftCategory;
+      return activeCategory === "Alle" || categoryMap[recipe.category] === activeCategory;
     }).map((id) => this.recipeViewModel(RECIPE_CATALOG[id], categoryMap));
-    return { categories, activeCategory: this.currentCraftCategory, recipes };
+    return {
+      station: this.craftingStation,
+      title: this.craftingStation === "workbench" ? "Werkbank" : "Handwerk",
+      hint: this.craftingStation === "workbench"
+        ? "Präzise Werkzeuge, Ausrüstung und Bauteile werden hier vorbereitet."
+        : "Einfache Dinge, die du ohne feste Arbeitsfläche herstellen kannst.",
+      categories,
+      activeCategory,
+      recipes,
+    };
   }
 
   private recipeViewModel(recipe: RecipeDefinition, categoryMap: Record<string, string>): RecipeViewModel {
-    const workbenchMissing = recipe.category === "raft" && recipe.id !== "paddle" && !this.isNearWorkbench();
     const blueprintMissing = Boolean(recipe.requiredBlueprint && this.inventory.count(recipe.requiredBlueprint) === 0);
     return {
       id: recipe.id,
       label: recipe.label,
       category: categoryMap[recipe.category] ?? recipe.category,
-      description: `${recipe.output.kind === "buildable" ? "Nach Auswahl als Bauvorschau in der Welt platzieren." : "Direkt im Inventar herstellen."} Herstellungszeit: ${recipe.craftDurationSeconds} s.`,
-      iconText: recipe.output.kind === "item"
-        ? ITEM_ICONS[recipe.output.itemId] ?? "•"
-        : recipe.output.buildableId === "bed"
-          ? "🛏️"
-          : recipe.output.buildableId === "chest"
-            ? "🧰"
-            : recipe.output.buildableId === "fish_trap"
-              ? "🎣"
-            : recipe.output.buildableId === "smoking_rack"
-              ? "♨️"
-            : recipe.output.buildableId.startsWith("raft")
-              ? "🛶"
-              : "🛠",
+      description: `${recipe.output.kind === "buildable" ? "Wird als Bauvorbereitung ausgewählt und anschließend in der Welt platziert." : "Wird direkt in deinem Rucksack hergestellt."} Arbeitszeit: ${recipe.craftDurationSeconds} s.`,
+      iconText: recipe.category === "components"
+        ? "≋"
+        : recipe.category === "tools"
+          ? "⌁"
+          : recipe.category === "building"
+            ? "▦"
+            : recipe.category === "raft"
+              ? "≈"
+              : "+",
       ingredients: recipe.ingredients.map((ingredient) => ({ itemId: ingredient.itemId, label: ITEM_CATALOG[ingredient.itemId].label, owned: this.inventory.count(ingredient.itemId), required: ingredient.quantity })),
-      canCraft: this.inventory.canConsume(recipe.ingredients) && !workbenchMissing && !blueprintMissing,
-      ...(workbenchMissing
-        ? { lockedReason: "Werkbank benötigt" }
-        : blueprintMissing && recipe.requiredBlueprint
+      canCraft: this.inventory.canConsume(recipe.ingredients) && !blueprintMissing,
+      ...(blueprintMissing && recipe.requiredBlueprint
           ? { lockedReason: `${ITEM_CATALOG[recipe.requiredBlueprint].label} benötigt` }
           : {}),
     };
@@ -1865,7 +1949,7 @@ export class GameApp {
       .filter((buildable) => this.currentBuildCategory === "Alle" || categoryMap[buildable.category] === this.currentBuildCategory)
       .map((buildable) => {
         const recipe = RECIPE_CATALOG[buildable.id as RecipeId];
-        const workbenchMissing = buildable.category === "raft" && !this.isNearWorkbench();
+        const workbenchMissing = craftingStationFor(recipe) === "workbench" && !this.isNearWorkbench();
         return {
           id: buildable.id,
           label: buildable.label,
@@ -1883,7 +1967,7 @@ export class GameApp {
                   : buildable.placement === "shallow-water"
                     ? "Nur im Flachwasser platzierbar."
                     : "Auf eine bestehende Floßbasis setzen.",
-          iconText: buildable.id === "bed" ? "🛏️" : buildable.id === "chest" ? "🧰" : buildable.id === "fish_trap" ? "🎣" : buildable.id === "smoking_rack" ? "♨️" : buildable.category === "raft" ? "🛶" : "🛠",
+          iconText: buildable.category === "raft" ? "≈" : buildable.category === "building" ? "▦" : buildable.category === "crafting" ? "⌁" : "+",
           ingredients: recipe.ingredients.map((ingredient) => ({ itemId: ingredient.itemId, label: ITEM_CATALOG[ingredient.itemId].label, owned: this.inventory.count(ingredient.itemId), required: ingredient.quantity })),
           available: this.inventory.canConsume(recipe.ingredients) && this.inventory.count("building_hammer") > 0 && !workbenchMissing,
           ...(workbenchMissing ? { lockedReason: "Werkbank benötigt" } : {}),
@@ -1906,12 +1990,13 @@ export class GameApp {
   }
 
   private heldItemId(): ItemId | null {
+    if (this.selectedBuild && this.placingStoredWorkbench) return null;
     if (this.selectedBuild && this.inventory.count("building_hammer") > 0) return "building_hammer";
     return this.selectedItemId();
   }
 
   private hotbarItems(): ItemId[] {
-    const priorities: ItemId[] = ["obsidian_knife", "stone_knife", "stone_axe", "wooden_spear", "shovel", "building_hammer", "fishing_rod", "climbing_kit", "paddle", "bandage", "herbal_antidote", "raw_fish", "cooked_fish", "raw_meat", "cooked_meat", "smoked_meat", "crab", "cooked_crab", "coconut"];
+    const priorities: ItemId[] = ["obsidian_knife", "stone_knife", "stone_axe", "wooden_spear", "shovel", "building_hammer", "fishing_rod", "climbing_kit", "paddle", "simple_bandage", "bandage", "herbal_antidote", "raw_fish", "cooked_fish", "raw_meat", "cooked_meat", "smoked_meat", "crab", "cooked_crab", "coconut"];
     const result = priorities.filter((id) => this.inventory.count(id) > 0).slice(0, 4);
     for (const stack of this.inventory.stacks) {
       if (result.length >= 4) break;
@@ -1992,6 +2077,16 @@ export class GameApp {
     if (panel !== "storage" && this.activeChestId) {
       this.activeChestId = null;
       if (this.state === "playing") void this.saveGame(false);
+    }
+    if (panel === "crafting" && this.openingWorkbench) {
+      this.openingWorkbench = false;
+    } else if (panel === null) {
+      this.openingWorkbench = false;
+      if (this.craftingStation !== "hand") {
+        this.craftingStation = "hand";
+        this.currentCraftCategory = "Alle";
+        this.ui.updateCrafting(this.createCraftingViewModel());
+      }
     }
     this.panelOpen = panel;
     if (panel) {
@@ -2094,7 +2189,7 @@ export class GameApp {
         this.toolView.triggerUse();
         this.attack();
       },
-      craft: (recipeId) => this.craft(recipeId, 1),
+      craft: (recipeId) => this.craft(recipeId, 1, true),
       use: (itemId) => {
         const index = this.inventory.stacks.findIndex((stack) => stack.itemId === itemId);
         if (index < 0) return false;
