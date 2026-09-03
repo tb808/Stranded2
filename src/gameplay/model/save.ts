@@ -318,6 +318,7 @@ function parseInventory(
     return undefined;
   }
   const inventory: ItemStack[] = [];
+  const occupiedSlots = new Set<number>();
   value.forEach((candidate, index) => {
     const stackPath = `${path}[${index}]`;
     const stack = readRecord(candidate, stackPath, errors);
@@ -340,10 +341,20 @@ function parseInventory(
       ? undefined
       : readRangeNumber(stack.spoilageSecondsRemaining, 0, 10_000_000_000, `${stackPath}.spoilageSecondsRemaining`, errors);
     if (stack.spoilageSecondsRemaining !== undefined && spoilageSecondsRemaining === undefined) return;
+    const slotIndex = stack.slotIndex === undefined
+      ? undefined
+      : readNonNegativeInteger(stack.slotIndex, `${stackPath}.slotIndex`, errors);
+    if (stack.slotIndex !== undefined && slotIndex === undefined) return;
+    if (slotIndex !== undefined && occupiedSlots.has(slotIndex)) {
+      errors.push(`${stackPath}.slotIndex is already occupied.`);
+      return;
+    }
+    if (slotIndex !== undefined) occupiedSlots.add(slotIndex);
     inventory.push({
       itemId: stack.itemId,
       quantity,
       ...(spoilageSecondsRemaining === undefined ? {} : { spoilageSecondsRemaining }),
+      ...(slotIndex === undefined ? {} : { slotIndex }),
     });
   });
   return inventory;

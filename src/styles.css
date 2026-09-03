@@ -1130,6 +1130,12 @@
     gap: 0.55rem;
   }
 
+  .inventory-manage-hint {
+    margin-bottom: 0.75rem;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+  }
+
   .storage-panel__hint {
     margin-bottom: 1rem;
     padding: 0.7rem 0.85rem;
@@ -1214,6 +1220,15 @@
     border-color: var(--color-sun);
     background: linear-gradient(145deg, rgba(50, 105, 91, 0.62), rgba(13, 43, 43, 0.85));
     transform: translateY(-2px);
+  }
+
+  .inventory-slot[data-dragging='true'] {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+
+  .inventory-slot:not([aria-pressed]) {
+    cursor: pointer;
   }
 
   .inventory-slot__number,

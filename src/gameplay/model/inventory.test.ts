@@ -85,6 +85,37 @@ describe('Inventory', () => {
     expect(clone.count('mango')).toBe(1);
   });
 
+  it('moves stacks into arbitrary empty slots and persists their positions', () => {
+    const inventory = new Inventory(6, [
+      { itemId: 'fiber', quantity: 4 },
+      { itemId: 'stone', quantity: 2 },
+    ]);
+
+    expect(inventory.moveStack(0, 5)).toBe(true);
+    expect(inventory.slots[0]).toBeUndefined();
+    expect(inventory.slots[5]).toEqual({ itemId: 'fiber', quantity: 4 });
+    expect(inventory.stacks).toEqual([
+      { itemId: 'stone', quantity: 2, slotIndex: 1 },
+      { itemId: 'fiber', quantity: 4, slotIndex: 5 },
+    ]);
+
+    const restored = new Inventory(6, inventory.stacks);
+    expect(restored.slots).toEqual(inventory.slots);
+  });
+
+  it('swaps two occupied inventory slots', () => {
+    const inventory = new Inventory(3, [
+      { itemId: 'fiber', quantity: 4 },
+      { itemId: 'stone', quantity: 2 },
+    ]);
+
+    expect(inventory.moveStack(0, 1)).toBe(true);
+    expect(inventory.slots.slice(0, 2)).toEqual([
+      { itemId: 'stone', quantity: 2 },
+      { itemId: 'fiber', quantity: 4 },
+    ]);
+  });
+
   it('rejects invalid quantities', () => {
     const inventory = new Inventory();
     expect(() => inventory.add('fiber', -1)).toThrow(RangeError);

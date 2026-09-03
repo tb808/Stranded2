@@ -15,6 +15,7 @@ interface GamePanelActions {
   close(): void;
   switchPanel(panel: UiPanel): void;
   selectInventoryItem(instanceId: string): void;
+  moveInventoryStack(sourceIndex: number, targetIndex: number): void;
   useInventoryItem(instanceId: string): void;
   dropInventoryItem(instanceId: string): void;
   depositStorageItem(instanceId: string): void;
@@ -59,6 +60,7 @@ export class GamePanelView {
     container: { slots: [] },
   };
   private selectedInventoryId: string | undefined;
+  private draggedInventoryIndex: number | undefined;
   private selectedRecipeId: string | undefined;
   private previouslyFocusedElement: HTMLElement | null = null;
   private focusRequest: number | null = null;
@@ -215,9 +217,12 @@ export class GamePanelView {
 
   private renderInventory(): void {
     clear(this.body);
+    const hint = element('p', 'inventory-manage-hint', 'Stapel ziehen oder einen Stapel und danach den Zielplatz anklicken. Belegte Plätze werden getauscht.');
+    hint.id = 'inventory-manage-hint';
     const grid = element('div', 'inventory-grid');
     grid.setAttribute('role', 'group');
     grid.setAttribute('aria-label', 'Inventarplätze');
+    grid.setAttribute('aria-describedby', hint.id);
 
     for (const slot of this.inventory.slots) {
       const item = slot.item;
@@ -234,7 +239,6 @@ export class GamePanelView {
         ),
       );
       control.type = 'button';
-      control.disabled = !item;
       control.dataset.panelFocus = `inventory-slot-${slot.index}`;
       const selected = Boolean(item && item.instanceId === this.selectedInventoryId);
       control.dataset.selected = String(selected);
@@ -244,12 +248,48 @@ export class GamePanelView {
         item ? `${item.label}, Anzahl ${item.quantity}` : `Platz ${slot.index + 1}, leer`,
       );
       if (item) {
-        control.addEventListener('click', () => {
+        control.draggable = true;
+        control.addEventListener('dragstart', (event) => {
+          this.draggedInventoryIndex = slot.index;
+          event.dataTransfer?.setData('text/plain', String(slot.index));
+          if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+          control.dataset.dragging = 'true';
+        });
+        control.addEventListener('dragend', () => {
+          this.draggedInventoryIndex = undefined;
+          delete control.dataset.dragging;
+        });
+      }
+      control.addEventListener('dragover', (event) => {
+        if (this.draggedInventoryIndex === undefined) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      });
+      control.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const sourceIndex = this.draggedInventoryIndex ?? Number(event.dataTransfer?.getData('text/plain'));
+        this.draggedInventoryIndex = undefined;
+        this.moveInventoryStack(sourceIndex, slot.index);
+      });
+      control.addEventListener('click', () => {
+        const selectedIndex = this.selectedInventoryId === undefined
+          ? undefined
+          : this.inventory.slots.find((candidate) => candidate.item?.instanceId === this.selectedInventoryId)?.index;
+        if (selectedIndex !== undefined && selectedIndex !== slot.index) {
+          this.moveInventoryStack(selectedIndex, slot.index);
+          return;
+        }
+        if (selectedIndex === slot.index) {
+          this.selectedInventoryId = undefined;
+          this.render();
+          return;
+        }
+        if (item) {
           this.selectedInventoryId = item.instanceId;
           this.actions.selectInventoryItem(item.instanceId);
           this.render();
-        });
-      }
+        }
+      });
       grid.append(control);
     }
 
@@ -258,7 +298,13 @@ export class GamePanelView {
     )?.item;
     const detail = this.inventoryDetail(selected);
     const weight = this.renderWeight();
-    this.body.append(element('div', 'inventory-layout', element('div', '', weight, grid), detail));
+    this.body.append(element('div', 'inventory-layout', element('div', '', weight, hint, grid), detail));
+  }
+
+  private moveInventoryStack(sourceIndex: number, targetIndex: number): void {
+    if (!Number.isSafeInteger(sourceIndex) || sourceIndex === targetIndex) return;
+    this.selectedInventoryId = undefined;
+    this.actions.moveInventoryStack(sourceIndex, targetIndex);
   }
 
   private inventoryDetail(item?: InventoryItemViewModel): HTMLElement {

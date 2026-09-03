@@ -160,8 +160,13 @@ function isDeathPackSaves(value: unknown): boolean {
 }
 
 function isInventory(value: unknown, maximumSlots = 24): boolean {
+  const occupiedSlots = new Set<number>();
   return Array.isArray(value) && value.length <= maximumSlots && value.every((stack) => {
     if (!isRecord(stack) || !isItemId(stack.itemId) || !isPositiveInteger(stack.quantity)) return false;
+    if (stack.slotIndex !== undefined) {
+      if (!isNonNegativeInteger(stack.slotIndex) || stack.slotIndex >= maximumSlots || occupiedSlots.has(stack.slotIndex)) return false;
+      occupiedSlots.add(stack.slotIndex);
+    }
     const spoilageDuration = getFoodSpoilageDuration(stack.itemId);
     const freshnessValid = stack.spoilageSecondsRemaining === undefined || (
       spoilageDuration !== undefined && isRangeNumber(stack.spoilageSecondsRemaining, 0, spoilageDuration)

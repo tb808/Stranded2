@@ -260,6 +260,12 @@ export class GameApp {
         },
         onInventoryItemUsed: (id) => this.useInventoryItem(id),
         onInventoryItemDropped: (id) => this.dropInventoryItem(id),
+        onInventoryStackMoved: (sourceIndex, targetIndex) => {
+          if (this.inventory.moveStack(sourceIndex, targetIndex)) {
+            this.refreshUi();
+            void this.saveGame(false);
+          }
+        },
         onStorageDeposit: (id) => this.depositStorageItem(id),
         onStorageWithdraw: (id) => this.withdrawStorageItem(id),
         onCraftingCategorySelected: (category) => {
@@ -1184,7 +1190,7 @@ export class GameApp {
 
   private useInventoryItem(instanceId: string): void {
     const index = Number(instanceId.replace("slot-", ""));
-    const stack = this.inventory.stacks[index];
+    const stack = this.inventory.slots[index];
     if (!stack) return;
     if (isBuildableId(stack.itemId)) {
       if (this.inventory.count("building_hammer") === 0) {
@@ -1312,12 +1318,18 @@ export class GameApp {
         if (this.inventory.usedSlots > BASE_INVENTORY_SLOTS) {
           this.ui.addToast({ text: `Leere zuerst ${this.inventory.usedSlots - BASE_INVENTORY_SLOTS} zusätzliche Inventarplätze.`, tone: "warning" });
         } else {
-          this.inventory = new Inventory(BASE_INVENTORY_SLOTS, this.inventory.stacks);
+          this.inventory = new Inventory(
+            BASE_INVENTORY_SLOTS,
+            this.inventory.slots.flatMap((stack) => stack ? [stack] : []),
+          );
           this.equippedBackpack = false;
           this.ui.addToast({ text: "Großen Rucksack abgelegt: wieder 24 Inventarplätze.", tone: "success" });
         }
       } else {
-        this.inventory = new Inventory(BACKPACK_INVENTORY_SLOTS, this.inventory.stacks);
+        this.inventory = new Inventory(
+          BACKPACK_INVENTORY_SLOTS,
+          this.inventory.slots.flatMap((stack) => stack ? [stack] : []),
+        );
         this.equippedBackpack = true;
         this.ui.addToast({ text: "Großen Rucksack angelegt: 36 Inventarplätze verfügbar.", tone: "success" });
       }
@@ -1328,7 +1340,7 @@ export class GameApp {
 
   private dropInventoryItem(instanceId: string): void {
     const index = Number(instanceId.replace("slot-", ""));
-    const stack = this.inventory.stacks[index];
+    const stack = this.inventory.slots[index];
     const position = this.physics?.getPlayerPosition();
     if (!stack || !position || !this.world) return;
     if (stack.itemId === "portable_workbench") {
@@ -1351,7 +1363,7 @@ export class GameApp {
   private depositStorageItem(instanceId: string): void {
     const building = this.activeChestId ? this.world?.getBuilding(this.activeChestId) : null;
     const index = Number(instanceId.replace("storage-player-", ""));
-    const stack = this.inventory.stacks[index];
+    const stack = this.inventory.slots[index];
     if (!building || building.type !== "chest" || !stack || !Number.isSafeInteger(index)) return;
     if (this.isEquipped(stack.itemId)) {
       this.ui.addToast({ text: "Lege diese Ausrüstung zuerst über „Benutzen“ ab.", tone: "warning" });
@@ -1379,7 +1391,7 @@ export class GameApp {
     if (!building || building.type !== "chest" || !Number.isSafeInteger(index)) return;
 
     const chestInventory = new Inventory(CHEST_STORAGE_SLOTS, building.storedItems ?? []);
-    const stack = chestInventory.stacks[index];
+    const stack = chestInventory.slots[index];
     if (!stack) return;
     const result = transferItems(chestInventory, this.inventory, stack.itemId, stack.quantity);
     building.storedItems = [...chestInventory.stacks];
@@ -1852,7 +1864,7 @@ export class GameApp {
   }
 
   private inventoryViewModel(inventory: Inventory, instancePrefix: string, title: string): InventoryViewModel {
-    const stacks = inventory.stacks;
+    const stacks = inventory.slots;
     return {
       title,
       slots: Array.from({ length: inventory.maxSlots }, (_, index) => {
@@ -2234,7 +2246,7 @@ export class GameApp {
       },
       craft: (recipeId) => this.craft(recipeId, 1, true),
       use: (itemId) => {
-        const index = this.inventory.stacks.findIndex((stack) => stack.itemId === itemId);
+        const index = this.inventory.slots.findIndex((stack) => stack?.itemId === itemId);
         if (index < 0) return false;
         this.useInventoryItem(`slot-${index}`);
         return true;

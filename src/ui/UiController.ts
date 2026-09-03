@@ -77,6 +77,7 @@ export class UiController {
       close: () => this.closePanel(),
       switchPanel: (panel) => this.openPanel(panel),
       selectInventoryItem: (instanceId) => this.callbacks.onInventoryItemSelected?.(instanceId),
+      moveInventoryStack: (sourceIndex, targetIndex) => this.callbacks.onInventoryStackMoved?.(sourceIndex, targetIndex),
       useInventoryItem: (instanceId) => this.callbacks.onInventoryItemUsed?.(instanceId),
       dropInventoryItem: (instanceId) => this.callbacks.onInventoryItemDropped?.(instanceId),
       depositStorageItem: (instanceId) => this.callbacks.onStorageDeposit?.(instanceId),

@@ -248,6 +248,7 @@ export interface UiCallbacks {
   onPanelChanged(panel: UiPanel | null): void;
   onHotbarSelected(index: number, itemId?: string): void;
   onInventoryItemSelected(instanceId: string): void;
+  onInventoryStackMoved(sourceIndex: number, targetIndex: number): void;
   onInventoryItemUsed(instanceId: string): void;
   onInventoryItemDropped(instanceId: string): void;
   onStorageDeposit(instanceId: string): void;
