@@ -1,4 +1,5 @@
 export * from './inventory';
+export * from './notebook';
 export * from './ocean';
 export * from './bleeding';
 export * from './foodSpoilage';

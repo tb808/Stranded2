@@ -1,6 +1,6 @@
 import { CHEST_STORAGE_SLOTS, isBuildableId } from "../data/buildables";
 import { getMaxDurability, ITEM_CATALOG, isItemId, type ItemId } from "../data/items";
-import { LEGACY_DAY_LENGTH_SECONDS, POISON_DURATION_SECONDS, getFoodSpoilageDuration, type ItemStack, type SurvivalState } from "../gameplay/model";
+import { LEGACY_DAY_LENGTH_SECONDS, POISON_DURATION_SECONDS, getFoodSpoilageDuration, isNotebookSave, type ItemStack, type NotebookSave, type SurvivalState } from "../gameplay/model";
 import type { Vec3Like } from "../core/math";
 import type { WorldSaveState } from "../world/TropicalWorld";
 
@@ -35,6 +35,7 @@ export interface RuntimeSaveV1 {
   };
   world: WorldSaveState;
   deathPacks: DeathPackSave[];
+  notebook?: NotebookSave;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -45,6 +46,7 @@ export function isRuntimeSaveV1(value: unknown): value is RuntimeSaveV1 {
   if (!isNonNegativeInteger(value.savedAtUnixMs) || !isPositiveInteger(value.day) || value.day > 1_000_000) return false;
   if (!isNonNegativeFinite(value.playedSeconds) || value.playedSeconds > 10_000_000_000) return false;
   if (!isPlayer(value.player) || !isWorld(value.world)) return false;
+  if (value.notebook !== undefined && !isNotebookSave(value.notebook)) return false;
   return isDeathPackSaves(value.deathPacks);
 }
 

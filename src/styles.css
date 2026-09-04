@@ -994,6 +994,82 @@
 }
 
 @layer overlays {
+  .sleep-transition {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .sleep-transition--active {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .sleep-transition__darkness {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    background: #020302;
+    opacity: 0;
+  }
+
+  .sleep-transition__lid {
+    position: absolute;
+    z-index: 1;
+    right: -4%;
+    left: -4%;
+    height: 54%;
+    background: radial-gradient(ellipse at center, #090b08 0%, #020302 72%);
+    will-change: transform;
+  }
+
+  .sleep-transition__lid--upper {
+    top: 0;
+    transform: translateY(-105%);
+  }
+
+  .sleep-transition__lid--lower {
+    bottom: 0;
+    transform: translateY(105%);
+  }
+
+  .sleep-transition--active .sleep-transition__darkness {
+    animation: sleep-darkness 1.8s ease-in-out both;
+  }
+
+  .sleep-transition--active .sleep-transition__lid--upper {
+    animation: close-upper-eyelid 1.8s cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+
+  .sleep-transition--active .sleep-transition__lid--lower {
+    animation: close-lower-eyelid 1.8s cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+
+  .sleep-transition--active.sleep-transition--reduced .sleep-transition__darkness,
+  .sleep-transition--active.sleep-transition--reduced .sleep-transition__lid {
+    animation-duration: 460ms;
+  }
+
+  @keyframes close-upper-eyelid {
+    0% { transform: translateY(-105%); }
+    42%, 58% { transform: translateY(0); }
+    100% { transform: translateY(-105%); }
+  }
+
+  @keyframes close-lower-eyelid {
+    0% { transform: translateY(105%); }
+    42%, 58% { transform: translateY(0); }
+    100% { transform: translateY(105%); }
+  }
+
+  @keyframes sleep-darkness {
+    0%, 30%, 72%, 100% { opacity: 0; }
+    43%, 58% { opacity: 1; }
+  }
+
   .game-panel {
     position: absolute;
     z-index: 4;
@@ -1081,6 +1157,265 @@
     padding: clamp(1rem, 2vw, 1.5rem);
     overflow: auto;
     overscroll-behavior: contain;
+  }
+
+  .notebook-sections {
+    display: flex;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+  }
+
+  .notebook-section-button {
+    min-height: 2.45rem;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+
+  .notebook-section-button:hover,
+  .notebook-section-button[data-active='true'] {
+    border-color: rgba(211, 190, 135, 0.58);
+    color: var(--color-sand-soft);
+    background: rgba(173, 154, 103, 0.12);
+  }
+
+  .notebook-layout {
+    display: grid;
+    min-height: calc(100% - 3.5rem);
+    grid-template-columns: minmax(14rem, 0.55fr) minmax(0, 1.45fr);
+    gap: clamp(0.8rem, 2vw, 1.35rem);
+  }
+
+  .notebook-index {
+    align-self: start;
+    display: grid;
+    max-height: min(62vh, 42rem);
+    gap: 0.4rem;
+    padding: 0.75rem;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.16);
+  }
+
+  .notebook-index__label {
+    padding: 0.2rem 0.25rem 0.45rem;
+    color: var(--color-sand);
+    font-size: 0.62rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .notebook-index__entry {
+    display: grid;
+    min-height: 3.8rem;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    background: transparent;
+    text-align: left;
+  }
+
+  .notebook-index__entry:hover,
+  .notebook-index__entry[data-active='true'] {
+    border-color: var(--line-strong);
+    color: var(--color-sand-soft);
+    background: rgba(255, 255, 255, 0.055);
+  }
+
+  .notebook-index__entry[data-active='true'] {
+    box-shadow: inset 3px 0 #b99c61;
+  }
+
+  .notebook-index__number {
+    display: grid;
+    width: 2.1rem;
+    height: 2.1rem;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    color: var(--color-sun);
+    font-family: Georgia, serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .notebook-index__copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.18rem;
+  }
+
+  .notebook-index__copy strong,
+  .notebook-index__copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .notebook-index__copy strong { font-size: 0.78rem; }
+  .notebook-index__copy small { color: var(--color-text-muted); font-size: 0.62rem; }
+
+  .notebook-page,
+  .notebook-empty {
+    position: relative;
+    align-self: start;
+    min-height: 100%;
+    padding: clamp(1.4rem, 3.5vw, 3rem);
+    overflow: hidden;
+    border: 1px solid rgba(83, 63, 36, 0.55);
+    border-radius: 0.35rem 0.7rem 0.55rem 0.3rem;
+    color: #3f3021;
+    background:
+      linear-gradient(90deg, rgba(102, 73, 38, 0.12), transparent 8%, transparent 94%, rgba(86, 59, 31, 0.08)),
+      repeating-linear-gradient(0deg, transparent 0 1.72rem, rgba(88, 110, 104, 0.12) 1.72rem calc(1.72rem + 1px)),
+      #e7d6aa;
+    box-shadow: 0 1.2rem 2.5rem rgba(0, 0, 0, 0.24), inset 0 0 3rem rgba(85, 58, 29, 0.12);
+  }
+
+  .notebook-page::before {
+    position: absolute;
+    inset: 0 auto 0 1.35rem;
+    width: 1px;
+    content: '';
+    background: rgba(133, 68, 50, 0.22);
+  }
+
+  .notebook-page__eyebrow {
+    color: #775732;
+    font-size: 0.63rem;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .notebook-page__title {
+    margin-top: 0.35rem;
+    color: #332416;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(2rem, 4vw, 3.45rem);
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .notebook-page__date,
+  .notebook-page__lead {
+    margin-top: 0.65rem;
+    color: #725a3e;
+    font-size: 0.78rem;
+  }
+
+  .notebook-page__lead {
+    max-width: 62rem;
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .notebook-page__body {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 1.5rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(0.9rem, 1.4vw, 1.04rem);
+    line-height: 1.72;
+  }
+
+  .notebook-page__signature {
+    margin-top: 1.2rem;
+    color: #594029;
+    font-family: 'Segoe Print', 'Bradley Hand', cursive;
+    font-size: 1.25rem;
+    text-align: right;
+  }
+
+  .notebook-page__footer {
+    margin-top: 1.5rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid rgba(69, 48, 28, 0.22);
+    color: #765f45;
+    font-size: 0.65rem;
+    font-weight: 780;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .notebook-discoveries {
+    margin-top: 1.5rem;
+  }
+
+  .notebook-discoveries h4 {
+    color: #4b3722;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.05rem;
+  }
+
+  .notebook-discoveries__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: 0.48rem;
+    margin-top: 0.65rem;
+    list-style: none;
+  }
+
+  .notebook-discovery {
+    display: flex;
+    min-height: 2.7rem;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid rgba(86, 60, 32, 0.24);
+    border-radius: 0.3rem;
+    background: rgba(255, 252, 225, 0.32);
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+
+  .notebook-discovery__icon { font-size: 1.15rem; }
+
+  .notebook-discoveries__empty {
+    margin-top: 0.5rem;
+    color: #806b52;
+    font-size: 0.76rem;
+    font-style: italic;
+  }
+
+  .notebook-empty {
+    display: grid;
+    min-height: min(27rem, 60vh);
+    place-content: center;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .notebook-empty__mark {
+    color: #80613b;
+    font-family: Georgia, serif;
+    font-size: 3rem;
+  }
+
+  .notebook-empty h3 {
+    margin-top: 0.6rem;
+    color: #3b2918;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.7rem;
+    font-weight: 500;
+  }
+
+  .notebook-empty p {
+    max-width: 32rem;
+    margin-top: 0.6rem;
+    color: #735d43;
+    font-size: 0.82rem;
+    line-height: 1.6;
   }
 
   .inventory-layout,
@@ -2102,8 +2437,13 @@
 
     .inventory-layout,
     .catalog-layout,
-    .build-layout {
+    .build-layout,
+    .notebook-layout {
       grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.75fr);
+    }
+
+    .notebook-layout {
+      grid-template-columns: minmax(13rem, 0.55fr) minmax(0, 1.45fr);
     }
   }
 
@@ -2145,8 +2485,13 @@
 
     .inventory-layout,
     .catalog-layout,
-    .build-layout {
+    .build-layout,
+    .notebook-layout {
       grid-template-columns: 1fr;
+    }
+
+    .notebook-index {
+      max-height: 13rem;
     }
 
     .crafting-context {

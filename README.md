@@ -66,6 +66,8 @@ Ein vollständiger Zeitzyklus dauert sieben Echtzeit-Minuten: fünf Minuten Tage
 
 Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt Lage und Größe aller elf vorhandenen Inseln. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
 
+Das Expeditions-Notizbuch wird mit `N` geöffnet. Im Story-Teil werden alle bereits gelesenen Briefe von Elias dauerhaft zum Nachlesen gesammelt. Der Insel-Teil verzeichnet jede betretene Insel sowie die dort tatsächlich gefundenen Rohstoffe und beobachteten Tierarten. Dadurch lässt sich später gezielt nachschlagen, wo sich ein benötigtes Material farmen lässt. Alle Einträge werden automatisch im Spielstand gespeichert.
+
 ## Starten
 
 Voraussetzungen: aktuelles Node.js, Desktop-Browser mit WebGL2 sowie Maus und Tastatur.
@@ -87,6 +89,7 @@ Vite startet die Entwicklungsversion standardmäßig unter `http://127.0.0.1:417
 - `F`: Werkbank benutzen und vollständiges Herstellungsmenü öffnen
 - `1`–`4`: Schnellzugriff, `Tab`: Inventar, `C`: Crafting, `B`: Bauen
 - `M`: Karte hervorholen oder wieder einstecken
+- `N`: Expeditions-Notizbuch öffnen oder schließen
 - `R`: Bauvorschau drehen, `Esc`: Pause
 
 ## Qualitätssicherung

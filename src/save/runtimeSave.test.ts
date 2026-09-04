@@ -46,6 +46,29 @@ describe("RuntimeSaveV1", () => {
     expect(isRuntimeSaveV1(validSave())).toBe(true);
   });
 
+  it("speichert gefundene Briefe sowie Insel-, Rohstoff- und Tierentdeckungen", () => {
+    const save = validSave();
+    save.notebook = {
+      discoveredLetterIds: ["letter-start-beach"],
+      islands: [{
+        islandId: "kleine-sandbank",
+        visitedDay: 1,
+        resourceIds: ["coconut", "fiber"],
+        animalIds: ["crab"],
+      }],
+    };
+    expect(isRuntimeSaveV1(save)).toBe(true);
+
+    (save.notebook.islands[0] as unknown as Record<string, unknown>).animalIds = ["dragon"];
+    expect(isRuntimeSaveV1(save)).toBe(false);
+  });
+
+  it("akzeptiert ältere Spielstände ohne Notizbuch", () => {
+    const save = validSave() as unknown as Record<string, unknown>;
+    delete save.notebook;
+    expect(isRuntimeSaveV1(save)).toBe(true);
+  });
+
   it("weist beschädigte verschachtelte Inventar- und Vitaldaten zurück", () => {
     const save = validSave() as unknown as Record<string, any>;
     save.player.inventory[0].itemId = "unbekannt";

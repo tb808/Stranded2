@@ -2,23 +2,23 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DAY_START_FRACTION,
+  EARLIEST_WAKE_FRACTION,
+  LATEST_WAKE_FRACTION,
   NIGHT_END_FRACTION,
   NIGHT_START_FRACTION,
+  SLEEP_END_FRACTION,
+  SLEEP_START_FRACTION,
+  getElapsedSecondsAtTimeOfDay,
   getTimeOfDayFraction,
+  getWakeTimeFraction,
   isNightTime,
+  isSleepTime,
   sleepUntilMorning,
 } from './sleep';
 import { DAY_LENGTH_SECONDS, DAYLIGHT_DURATION_SECONDS, NIGHT_DURATION_SECONDS, createInitialSurvivalState, type SurvivalState } from './survival';
 
 function elapsedAt(timeOfDayFraction: number): number {
-  if (timeOfDayFraction >= DAY_START_FRACTION && timeOfDayFraction < NIGHT_START_FRACTION) {
-    return ((timeOfDayFraction - DAY_START_FRACTION) / (NIGHT_START_FRACTION - DAY_START_FRACTION)) * DAYLIGHT_DURATION_SECONDS;
-  }
-  const nightClockFraction = timeOfDayFraction >= NIGHT_START_FRACTION
-    ? timeOfDayFraction - NIGHT_START_FRACTION
-    : 1 - NIGHT_START_FRACTION + timeOfDayFraction;
-  return DAYLIGHT_DURATION_SECONDS +
-    (nightClockFraction / (1 - NIGHT_START_FRACTION + NIGHT_END_FRACTION)) * NIGHT_DURATION_SECONDS;
+  return getElapsedSecondsAtTimeOfDay(timeOfDayFraction);
 }
 
 function state(patch: Partial<SurvivalState> = {}): SurvivalState {
@@ -49,6 +49,22 @@ describe('sleep helpers', () => {
     expect(isNightTime(elapsedAt(0.5))).toBe(false);
   });
 
+  it('erlaubt Schlaf von 18:00 bis einschließlich 03:00', () => {
+    expect(isSleepTime(elapsedAt(SLEEP_START_FRACTION))).toBe(true);
+    expect(isSleepTime(elapsedAt(0.99))).toBe(true);
+    expect(isSleepTime(elapsedAt(0))).toBe(true);
+    expect(isSleepTime(elapsedAt(SLEEP_END_FRACTION))).toBe(true);
+    expect(isSleepTime(elapsedAt(SLEEP_START_FRACTION - 1 / 1_440))).toBe(false);
+    expect(isSleepTime(elapsedAt(SLEEP_END_FRACTION + 1 / 1_440))).toBe(false);
+  });
+
+  it('berechnet abhängig von der Einschlafzeit eine Aufwachzeit zwischen 06:00 und 12:00', () => {
+    expect(getWakeTimeFraction(elapsedAt(SLEEP_START_FRACTION))).toBeCloseTo(EARLIEST_WAKE_FRACTION);
+    expect(getWakeTimeFraction(elapsedAt(21 / 24))).toBeCloseTo(8 / 24);
+    expect(getWakeTimeFraction(elapsedAt(0))).toBeCloseTo(10 / 24);
+    expect(getWakeTimeFraction(elapsedAt(SLEEP_END_FRACTION))).toBeCloseTo(LATEST_WAKE_FRACTION);
+  });
+
   it('skips a night to morning and applies the sleep costs without mutating input', () => {
     const original = state({
       health: 73,
@@ -65,6 +81,7 @@ describe('sleep helpers', () => {
 
     expect(result).toEqual({
       slept: true,
+      skippedSeconds: expect.any(Number),
       state: {
         health: 73,
         hunger: 0,
@@ -74,7 +91,7 @@ describe('sleep helpers', () => {
         oxygen: 64,
         fatigue: 0,
         staminaRegenDelayRemaining: 0,
-        dayElapsedSeconds: 0,
+        dayElapsedSeconds: elapsedAt(getWakeTimeFraction(original.dayElapsedSeconds)),
       },
     });
     expect(original.hunger).toBe(6);
@@ -85,7 +102,7 @@ describe('sleep helpers', () => {
     const original = state({ hunger: 48, thirst: 37, stamina: 44, dayElapsedSeconds: elapsedAt(0.5) });
     const result = sleepUntilMorning(original);
 
-    expect(result).toEqual({ slept: false, state: original });
+    expect(result).toEqual({ slept: false, state: original, skippedSeconds: 0 });
     expect(result.state).not.toBe(original);
   });
 });

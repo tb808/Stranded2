@@ -87,7 +87,7 @@ export class ModalView {
         ...model.paragraphs.map((paragraph) => element('p', '', paragraph)),
       ),
       element('p', 'letter-view__signature', model.signature),
-      element('p', 'letter-view__hint', 'Esc oder × zum Schließen'),
+      element('p', 'letter-view__hint', 'Automatisch im Notizbuch gespeichert · N zum Nachlesen · Esc oder × zum Schließen'),
       element('span', 'letter-view__seal', 'E'),
     );
     article.querySelector('h2')!.id = 'ui-modal-title';

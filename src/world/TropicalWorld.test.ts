@@ -5,7 +5,7 @@ import type { RapierPhysicsWorld } from "../physics/RapierPhysicsWorld";
 import { LORE_LETTERS } from "../data/loreLetters";
 import { WORLD_MANIFEST, getIsland } from "../data/worldManifest";
 import { weatherState } from "../gameplay/model/weather";
-import { createBuildVisual, createLoreLetterVisual, ISLAND_TERRAIN_STRUCTURES, ISLAND_WILDLIFE, TropicalWorld, WORLD_SCENERY_MODEL_IDS } from "./TropicalWorld";
+import { createBuildVisual, createLoreLetterVisual, createStaticCollisionMesh, ISLAND_TERRAIN_STRUCTURES, ISLAND_WILDLIFE, TropicalWorld, WORLD_SCENERY_MODEL_IDS } from "./TropicalWorld";
 
 function createWorld(assets: AssetService = { createModel: () => null } as unknown as AssetService): TropicalWorld {
   const physics = { addFixedCuboid: () => ({}), removeColliderBody: () => undefined } as unknown as RapierPhysicsWorld;
@@ -412,6 +412,32 @@ describe("TropicalWorld Dschungelberg-Kletterroute", () => {
 });
 
 describe("TropicalWorld Vulkaninsel", () => {
+  it("übernimmt Größe, Drehung und Weltposition des Vulkanmodells in die Kollision", () => {
+    const islandAnchor = new Group();
+    islandAnchor.position.set(500, 0, -220);
+    const volcanoAnchor = new Group();
+    volcanoAnchor.position.set(4, 7.5, -3);
+    volcanoAnchor.rotation.y = Math.PI / 2;
+    const model = new Mesh(new BoxGeometry(20, 56, 30));
+    model.position.y = 28;
+    volcanoAnchor.add(model);
+    islandAnchor.add(volcanoAnchor);
+
+    const collision = createStaticCollisionMesh(model);
+    expect(collision).not.toBeNull();
+    expect(collision!.indices.length).toBe(36);
+    const coordinates = Array.from(collision!.vertices);
+    const xs = coordinates.filter((_, index) => index % 3 === 0);
+    const ys = coordinates.filter((_, index) => index % 3 === 1);
+    const zs = coordinates.filter((_, index) => index % 3 === 2);
+    expect(Math.min(...xs)).toBeCloseTo(489);
+    expect(Math.max(...xs)).toBeCloseTo(519);
+    expect(Math.min(...ys)).toBeCloseTo(7.5);
+    expect(Math.max(...ys)).toBeCloseTo(63.5);
+    expect(Math.min(...zs)).toBeCloseTo(-233);
+    expect(Math.max(...zs)).toBeCloseTo(-213);
+  });
+
   it("staffelt die Hitze von der sicheren Aschebucht bis zur Gluthitze am Krater", () => {
     const world = createWorld();
     const island = getIsland("vulkaninsel");
@@ -831,7 +857,9 @@ describe("TropicalWorld Kenney-Bauwerke", () => {
       },
     } as unknown as AssetService;
 
-    expect(createBuildVisual("bed", assets).children.length).toBeGreaterThan(0);
+    const bed = createBuildVisual("bed", assets);
+    expect(bed.children.length).toBeGreaterThan(0);
+    expect(bed.rotation.y).toBe(Math.PI);
     expect(createBuildVisual("chest", assets).children.length).toBeGreaterThan(0);
     expect(requested).toEqual([
       "survival.bedroll-frame",

@@ -12,6 +12,7 @@ import type {
   InventoryViewModel,
   LetterViewModel,
   MainMenuViewModel,
+  NotebookViewModel,
   PauseViewModel,
   SettingsViewModel,
   StorageErrorViewModel,
@@ -181,6 +182,10 @@ export class UiController {
     this.panelView.updateStorage(model);
   }
 
+  updateNotebook(model: NotebookViewModel): void {
+    this.panelView.updateNotebook(model);
+  }
+
   updateSettings(model: SettingsViewModel): void {
     this.settings = cloneSettings(model);
     this.element.classList.toggle('ui-reduced-motion', model.reducedMotion);
@@ -317,6 +322,7 @@ export class UiController {
       KeyI: 'inventory',
       KeyC: 'crafting',
       KeyB: 'build',
+      KeyN: 'notebook',
     };
     const panel = panelByCode[event.code];
     if (panel) {

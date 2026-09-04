@@ -3337,11 +3337,17 @@ export class TropicalWorld {
     group.add(glow);
 
     this.scene.add(group);
-    this.physics.addFixedCylinder(
-      { x: worldX, y: ground + 18, z: worldZ },
-      18,
-      18,
-    );
+    const collisionMesh = model ? createStaticCollisionMesh(model) : null;
+    if (collisionMesh) {
+      this.physics.addTerrain(collisionMesh.vertices, collisionMesh.indices);
+    } else {
+      // Keep a conservative fallback when the optional model could not load.
+      this.physics.addFixedCylinder(
+        { x: worldX, y: ground + 18, z: worldZ },
+        18,
+        18,
+      );
+    }
     this.streamedScenery.push({ object: group, center: group.position.clone(), distance: 720 });
   }
 
@@ -4803,7 +4809,12 @@ export function createBuildVisual(type: BuildableId, assets: AssetService, found
       assets,
       0.72,
     );
-    if (bed) return bed;
+    if (bed) {
+      // The Survival Kit bedroll points toward the opposite head/foot direction
+      // from our placement preview. Keep it upright and turn it on the Y axis.
+      bed.rotation.y = Math.PI;
+      return bed;
+    }
   }
   const loadedId = type === "campfire"
     ? "survival.campfire-pit"
@@ -6876,6 +6887,35 @@ function createKitInstancedMesh(assets: AssetService, assetId: string, capacity:
   geometry.translate(-center.x, -normalizedBox.min.y, -center.z);
   geometry.computeBoundingSphere();
   return new InstancedMesh(geometry, sourceMesh.material, capacity);
+}
+
+export function createStaticCollisionMesh(root: Object3D): { vertices: Float32Array; indices: Uint32Array } | null {
+  root.updateWorldMatrix(true, true);
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  const point = new Vector3();
+
+  root.traverse((object) => {
+    if (!(object instanceof Mesh) || !(object.geometry instanceof BufferGeometry)) return;
+    const position = object.geometry.getAttribute("position");
+    if (!position || position.itemSize < 3) return;
+    const vertexOffset = vertices.length / 3;
+    for (let index = 0; index < position.count; index += 1) {
+      point.set(position.getX(index), position.getY(index), position.getZ(index)).applyMatrix4(object.matrixWorld);
+      vertices.push(point.x, point.y, point.z);
+    }
+    const geometryIndex = object.geometry.getIndex();
+    if (geometryIndex) {
+      for (let index = 0; index < geometryIndex.count; index += 1) {
+        indices.push(vertexOffset + geometryIndex.getX(index));
+      }
+    } else {
+      for (let index = 0; index < position.count; index += 1) indices.push(vertexOffset + index);
+    }
+  });
+
+  if (vertices.length === 0 || indices.length < 3) return null;
+  return { vertices: new Float32Array(vertices), indices: new Uint32Array(indices) };
 }
 
 function normalizeHeight(object: Object3D, targetHeight: number): void {

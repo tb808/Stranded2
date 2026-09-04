@@ -6,6 +6,8 @@ import type {
   IngredientViewModel,
   InventoryItemViewModel,
   InventoryViewModel,
+  NotebookDiscoveryViewModel,
+  NotebookViewModel,
   RecipeViewModel,
   StorageViewModel,
   UiPanel,
@@ -59,6 +61,15 @@ export class GamePanelView {
     player: { slots: [] },
     container: { slots: [] },
   };
+  private notebook: NotebookViewModel = {
+    storyEntries: [],
+    islands: [],
+    totalStoryEntries: 0,
+    totalIslands: 0,
+  };
+  private notebookSection: 'story' | 'islands' = 'story';
+  private selectedNotebookStoryId: string | undefined;
+  private selectedNotebookIslandId: string | undefined;
   private selectedInventoryId: string | undefined;
   private draggedInventoryIndex: number | undefined;
   private selectedRecipeId: string | undefined;
@@ -87,6 +98,7 @@ export class GamePanelView {
       ['inventory', 'Rucksack', 'I'],
       ['crafting', 'Handwerk', 'C'],
       ['build', 'Bauen', 'B'],
+      ['notebook', 'Notizbuch', 'N'],
     ];
     for (const [panel, label, key] of tabs) {
       const control = button(
@@ -181,6 +193,17 @@ export class GamePanelView {
     if (this.activePanel === 'storage') this.render();
   }
 
+  updateNotebook(model: NotebookViewModel): void {
+    this.notebook = model;
+    if (!model.storyEntries.some((entry) => entry.id === this.selectedNotebookStoryId)) {
+      this.selectedNotebookStoryId = model.storyEntries.at(-1)?.id;
+    }
+    if (!model.islands.some((entry) => entry.id === this.selectedNotebookIslandId)) {
+      this.selectedNotebookIslandId = model.islands.at(-1)?.id;
+    }
+    if (this.activePanel === 'notebook') this.render();
+  }
+
   private render(): void {
     if (!this.activePanel) return;
     const focusKey =
@@ -191,6 +214,7 @@ export class GamePanelView {
       inventory: [this.inventory.title ?? 'Rucksack', 'I'],
       crafting: [this.crafting.title, this.crafting.station === 'workbench' ? 'F' : 'C'],
       build: ['Bauplan wählen', 'B'],
+      notebook: ['Expeditions-Notizbuch', 'N'],
       storage: [this.storage.title ?? 'Truhe', 'E'],
     };
     this.title.textContent = meta[this.activePanel][0];
@@ -211,6 +235,7 @@ export class GamePanelView {
     if (this.activePanel === 'inventory') this.renderInventory();
     if (this.activePanel === 'crafting') this.renderCrafting();
     if (this.activePanel === 'build') this.renderBuild();
+    if (this.activePanel === 'notebook') this.renderNotebook();
     if (this.activePanel === 'storage') this.renderStorage();
     this.restoreRenderedFocus(focusKey);
   }
@@ -402,6 +427,148 @@ export class GamePanelView {
           (instanceId) => this.actions.withdrawStorageItem(instanceId),
         ),
       ),
+    );
+  }
+
+  private renderNotebook(): void {
+    clear(this.body);
+    const sectionNav = element('nav', 'notebook-sections');
+    sectionNav.setAttribute('aria-label', 'Notizbuchbereiche');
+    const sections: ReadonlyArray<['story' | 'islands', string, number, number]> = [
+      ['story', 'Elias’ Geschichte', this.notebook.storyEntries.length, this.notebook.totalStoryEntries],
+      ['islands', 'Inselwissen', this.notebook.islands.length, this.notebook.totalIslands],
+    ];
+    for (const [section, label, found, total] of sections) {
+      const control = button(`${label}  ${found}/${total}`, 'notebook-section-button', () => {
+        this.notebookSection = section;
+        this.render();
+      });
+      control.dataset.active = String(section === this.notebookSection);
+      control.dataset.panelFocus = `notebook-section-${section}`;
+      control.setAttribute('aria-pressed', String(section === this.notebookSection));
+      sectionNav.append(control);
+    }
+    this.body.append(sectionNav);
+    if (this.notebookSection === 'story') this.renderNotebookStory();
+    else this.renderNotebookIslands();
+  }
+
+  private renderNotebookStory(): void {
+    const entries = this.notebook.storyEntries;
+    if (entries.length === 0) {
+      this.body.append(this.notebookEmpty(
+        'Noch keine Spur von Elias',
+        'Untersuche Lagerplätze und auffällige Orte. Sobald du einen Brief liest, wird sein Inhalt hier festgehalten.',
+      ));
+      return;
+    }
+    const selected = entries.find((entry) => entry.id === this.selectedNotebookStoryId) ?? entries.at(-1)!;
+    const index = element('aside', 'notebook-index');
+    index.append(element('p', 'notebook-index__label', 'Gefundene Briefe'));
+    for (const entry of entries) {
+      const control = button('', 'notebook-index__entry', () => {
+        this.selectedNotebookStoryId = entry.id;
+        this.render();
+      });
+      control.replaceChildren(
+        element('span', 'notebook-index__number', String(entry.sequence).padStart(2, '0')),
+        element('span', 'notebook-index__copy',
+          element('strong', '', entry.title),
+          element('small', '', entry.dateLabel),
+        ),
+      );
+      control.dataset.active = String(entry.id === selected.id);
+      control.dataset.panelFocus = `notebook-story-${entry.id}`;
+      control.setAttribute('aria-pressed', String(entry.id === selected.id));
+      index.append(control);
+    }
+    const body = element('div', 'notebook-page__body');
+    for (const paragraph of selected.paragraphs) body.append(element('p', '', paragraph));
+    const page = element(
+      'article',
+      'notebook-page notebook-page--story',
+      element('p', 'notebook-page__eyebrow', `Brief ${selected.sequence} · ${selected.locationLabel}`),
+      element('h3', 'notebook-page__title', selected.title),
+      element('p', 'notebook-page__date', selected.dateLabel),
+      body,
+      element('p', 'notebook-page__signature', selected.signature),
+      element('p', 'notebook-page__footer', `${entries.length} von ${this.notebook.totalStoryEntries} Briefen entdeckt`),
+    );
+    this.body.append(element('div', 'notebook-layout', index, page));
+  }
+
+  private renderNotebookIslands(): void {
+    const islands = this.notebook.islands;
+    if (islands.length === 0) {
+      this.body.append(this.notebookEmpty(
+        'Noch keine Insel verzeichnet',
+        'Betritt eine Insel, damit sie automatisch in deinem Expeditions-Notizbuch erscheint.',
+      ));
+      return;
+    }
+    const selected = islands.find((entry) => entry.id === this.selectedNotebookIslandId) ?? islands.at(-1)!;
+    const index = element('aside', 'notebook-index');
+    index.append(element('p', 'notebook-index__label', 'Besuchte Inseln'));
+    for (const island of islands) {
+      const control = button('', 'notebook-index__entry notebook-index__entry--island', () => {
+        this.selectedNotebookIslandId = island.id;
+        this.render();
+      });
+      control.replaceChildren(
+        element('span', 'notebook-index__number', '⌖'),
+        element('span', 'notebook-index__copy',
+          element('strong', '', island.name),
+          element('small', '', `${island.resources.length} Rohstoffe · ${island.animals.length} Tiere`),
+        ),
+      );
+      control.dataset.active = String(island.id === selected.id);
+      control.dataset.panelFocus = `notebook-island-${island.id}`;
+      control.setAttribute('aria-pressed', String(island.id === selected.id));
+      index.append(control);
+    }
+    const page = element(
+      'article',
+      'notebook-page notebook-page--island',
+      element('p', 'notebook-page__eyebrow', `Erstmals besucht · Tag ${selected.visitedDay}`),
+      element('h3', 'notebook-page__title', selected.name),
+      element('p', 'notebook-page__lead', selected.description),
+      this.notebookDiscoveries('Gefundene Ressourcen', selected.resources, 'Sammle Rohstoffe auf dieser Insel, um sie hier einzutragen.'),
+      this.notebookDiscoveries('Entdeckte Tiere', selected.animals, 'Beobachte die Tierwelt aus der Nähe, um sie hier einzutragen.'),
+      element('p', 'notebook-page__footer', `${islands.length} von ${this.notebook.totalIslands} Inseln besucht`),
+    );
+    this.body.append(element('div', 'notebook-layout', index, page));
+  }
+
+  private notebookDiscoveries(
+    title: string,
+    discoveries: readonly NotebookDiscoveryViewModel[],
+    emptyText: string,
+  ): HTMLElement {
+    const section = element('section', 'notebook-discoveries', element('h4', '', title));
+    if (discoveries.length === 0) {
+      section.append(element('p', 'notebook-discoveries__empty', emptyText));
+      return section;
+    }
+    const list = element('ul', 'notebook-discoveries__list');
+    for (const discovery of discoveries) {
+      list.append(element(
+        'li',
+        'notebook-discovery',
+        element('span', 'notebook-discovery__icon', discovery.iconText),
+        element('span', '', discovery.label),
+      ));
+    }
+    section.append(list);
+    return section;
+  }
+
+  private notebookEmpty(title: string, text: string): HTMLElement {
+    return element(
+      'section',
+      'notebook-empty',
+      element('span', 'notebook-empty__mark', '✎'),
+      element('h3', '', title),
+      element('p', '', text),
     );
   }
 

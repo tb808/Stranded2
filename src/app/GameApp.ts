@@ -29,6 +29,7 @@ import {
 import { getIsland, WORLD_MANIFEST, type IslandId } from "../data/worldManifest";
 import {
   Inventory,
+  ExpeditionNotebook,
   DAY_LENGTH_SECONDS,
   POISON_DURATION_SECONDS,
   advanceBleeding,
@@ -39,10 +40,12 @@ import {
   formatFoodFreshness,
   getTimeOfDayFraction,
   getWeatherState,
+  isNotebookAnimalId,
   weatherState,
   sleepUntilMorning,
   transferItems,
   type MovementActivity,
+  type NotebookAnimalId,
   type SurvivalState,
   type WeatherKind,
   type WeatherState,
@@ -60,6 +63,7 @@ import {
   type CraftingViewModel,
   type HudViewModel,
   type InventoryViewModel,
+  type NotebookViewModel,
   type RecipeViewModel,
   type SettingsViewModel,
   type StorageViewModel,
@@ -140,6 +144,18 @@ const ITEM_ICONS: Partial<Record<ItemId, string>> = {
   backpack: "🎒",
 };
 
+const NOTEBOOK_ANIMALS: Record<NotebookAnimalId, { label: string; iconText: string }> = {
+  crab: { label: "Krabbe", iconText: "🦀" },
+  fish: { label: "Fisch", iconText: "🐟" },
+  wild_boar: { label: "Wildschwein", iconText: "🐗" },
+  chicken: { label: "Huhn", iconText: "🐔" },
+  turtle: { label: "Schildkröte", iconText: "🐢" },
+  bird: { label: "Tropenvogel", iconText: "🦜" },
+  crocodile: { label: "Krokodil", iconText: "🐊" },
+  snake: { label: "Schlange", iconText: "🐍" },
+  shark: { label: "Hai", iconText: "🦈" },
+};
+
 const BASE_INVENTORY_SLOTS = 24;
 const BACKPACK_INVENTORY_SLOTS = 36;
 const CAMPFIRE_WARMTH_RADIUS_METERS = 6;
@@ -161,12 +177,14 @@ export class GameApp {
   private readonly input: InputController;
   private readonly loop: FixedStepLoop;
   private readonly stage: HTMLElement;
+  private readonly sleepTransition: HTMLElement;
   private readonly buildGhost = new Group();
   private readonly toolView = new FirstPersonToolView(this.assets);
   private physics: RapierPhysicsWorld | null = null;
   private world: TropicalWorld | null = null;
   private state: AppState = "boot";
   private inventory = new Inventory();
+  private notebook = new ExpeditionNotebook();
   private survival: SurvivalState = createInitialSurvivalState();
   private settings: SettingsViewModel;
   private toolDurability: Partial<Record<ItemId, number>> = {};
@@ -214,6 +232,7 @@ export class GameApp {
   private bleedingCausedDeath = false;
   private previousFatigueLevel: FatigueLevel | null = null;
   private toolViewMoving = false;
+  private sleeping = false;
   private currentIslandId: IslandId | null = null;
   private lastStorageOperation: "load" | "save" = "save";
   private pendingSaveAction: {
@@ -227,6 +246,18 @@ export class GameApp {
     this.stage.className = "game-stage";
     this.stage.setAttribute("aria-label", "Stranded2 3D-Spielwelt");
     this.root.append(this.stage);
+
+    this.sleepTransition = document.createElement("div");
+    this.sleepTransition.className = "sleep-transition";
+    this.sleepTransition.setAttribute("aria-hidden", "true");
+    const upperEyelid = document.createElement("div");
+    upperEyelid.className = "sleep-transition__lid sleep-transition__lid--upper";
+    const lowerEyelid = document.createElement("div");
+    lowerEyelid.className = "sleep-transition__lid sleep-transition__lid--lower";
+    const darkness = document.createElement("div");
+    darkness.className = "sleep-transition__darkness";
+    this.sleepTransition.append(darkness, upperEyelid, lowerEyelid);
+    this.root.append(this.sleepTransition);
 
     this.renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance", alpha: false });
     this.renderer.outputColorSpace = SRGBColorSpace;
@@ -397,6 +428,7 @@ export class GameApp {
     }
     if (!(await this.prepareWorld())) return;
     this.inventory = new Inventory();
+    this.notebook = new ExpeditionNotebook();
     this.survival = createInitialSurvivalState();
     this.toolDurability = {};
     this.equippedShirt = false;
@@ -428,7 +460,7 @@ export class GameApp {
     this.spawnPoint = this.defaultSpawn();
     this.physics?.setPlayerPosition(this.spawnPoint);
     await this.beginPlaying();
-    this.ui.addToast({ text: "Du bist gestrandet. Mit M holst du deine Karte hervor.", tone: "info", durationMs: 7_000 });
+    this.ui.addToast({ text: "Du bist gestrandet. M öffnet die Karte, N dein Expeditions-Notizbuch.", tone: "info", durationMs: 7_000 });
   }
 
   private async continueGame(): Promise<void> {
@@ -504,10 +536,11 @@ export class GameApp {
     this.state = "playing";
     this.panelOpen = null;
     this.activeChestId = null;
-    this.ui.showGame(this.createHudViewModel());
-    this.refreshUi();
     const position = this.physics?.getPlayerPosition();
     this.currentIslandId = position ? this.world?.getIslandAt(position.x, position.z)?.id ?? null : null;
+    if (this.currentIslandId) this.notebook.visitIsland(this.currentIslandId, this.day);
+    this.ui.showGame(this.createHudViewModel());
+    this.refreshUi();
     await this.audio.unlock();
     this.audio.startOceanAmbience();
     this.requestPointerLock();
@@ -517,7 +550,7 @@ export class GameApp {
     const physics = this.physics;
     const world = this.world;
     const input = this.input.consume();
-    if (!physics || !world || this.state !== "playing" || this.panelOpen) return;
+    if (!physics || !world || this.state !== "playing" || this.panelOpen || this.sleeping) return;
     this.simulationTime += dt;
 
     this.yaw -= input.lookDeltaX;
@@ -671,6 +704,7 @@ export class GameApp {
     }
     if (this.uiAccumulator >= 0.1) {
       this.uiAccumulator = 0;
+      this.discoverNearbyWildlife(updatedPosition);
       this.refreshUi();
     }
   }
@@ -872,20 +906,7 @@ export class GameApp {
       this.ui.addToast({ text: "Schutzdach als Respawnpunkt gesetzt.", tone: "success" });
       void this.saveGame(false);
     } else if (building.type === "bed") {
-      const result = sleepUntilMorning(this.survival);
-      if (result.slept) {
-        const skippedSeconds = DAY_LENGTH_SECONDS - this.survival.dayElapsedSeconds;
-        this.survival = result.state;
-        this.previousFatigueLevel = "rested";
-        this.advancePoisonCondition(skippedSeconds);
-        this.advanceBleedingCondition(skippedSeconds);
-        this.advanceFoodSpoilage(skippedSeconds);
-        this.day += 1;
-        this.ui.addToast({ text: "Du schläfst bis zum Morgen und bist wieder vollständig erholt.", tone: "success" });
-        void this.saveGame(false);
-      } else {
-        this.ui.addToast({ text: "Du kannst das Bett erst am Abend oder in der Nacht benutzen.", tone: "info" });
-      }
+      void this.sleepInBed();
     } else if (building.type === "chest") {
       this.activeChestId = building.id;
       this.ui.updateStorage(this.createStorageViewModel());
@@ -907,6 +928,7 @@ export class GameApp {
       if (stored > 0) {
         const result = this.inventory.add("raw_fish", stored);
         building.fishTrapStored = stored - result.added;
+        if (result.added > 0) this.recordLootDiscoveries([{ itemId: "raw_fish", count: result.added }]);
         this.ui.addToast({
           text: result.added > 0 ? `${result.added}× rohen Fisch aus der Reuse genommen.` : "Im Inventar ist kein Platz für den Fang.",
           tone: result.added > 0 ? "success" : "warning",
@@ -996,9 +1018,52 @@ export class GameApp {
     this.refreshUi();
   }
 
+  private async sleepInBed(): Promise<void> {
+    if (this.sleeping) return;
+    const result = sleepUntilMorning(this.survival);
+    if (!result.slept) {
+      this.ui.addToast({ text: "Du kannst zwischen 18:00 und 03:00 Uhr schlafen.", tone: "info" });
+      return;
+    }
+
+    this.sleeping = true;
+    const reducedMotion = this.settings.reducedMotion;
+    this.sleepTransition.classList.toggle("sleep-transition--reduced", reducedMotion);
+    this.sleepTransition.classList.add("sleep-transition--active");
+    await this.waitForSleepTransition(reducedMotion ? 160 : 760);
+
+    this.survival = result.state;
+    this.previousFatigueLevel = "rested";
+    this.advancePoisonCondition(result.skippedSeconds);
+    this.advanceBleedingCondition(result.skippedSeconds);
+    this.advanceFoodSpoilage(result.skippedSeconds);
+    this.day += 1;
+    this.weather = this.weatherOverride
+      ? weatherState(this.weatherOverride)
+      : getWeatherState(this.day, this.survival.dayElapsedSeconds);
+    this.previousWeatherKind = this.weather.kind;
+    this.refreshUi();
+
+    await this.waitForSleepTransition(reducedMotion ? 300 : 1_040);
+    this.sleepTransition.classList.remove("sleep-transition--active", "sleep-transition--reduced");
+    this.sleeping = false;
+    const wakeMinutes = Math.round(getTimeOfDayFraction(this.survival.dayElapsedSeconds) * 24 * 60) % (24 * 60);
+    const wakeTime = `${String(Math.floor(wakeMinutes / 60)).padStart(2, "0")}:${String(wakeMinutes % 60).padStart(2, "0")}`;
+    this.ui.addToast({ text: `Du wachst um ${wakeTime} Uhr vollständig erholt auf.`, tone: "success" });
+    void this.saveGame(false);
+  }
+
+  private waitForSleepTransition(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  }
+
   private openLoreLetter(id: string): boolean {
     const letter = getLoreLetter(id);
     if (!letter || (this.state !== "playing" && this.state !== "paused")) return false;
+    const discovered = this.notebook.discoverLetter(letter.id);
+    this.notebook.visitIsland(letter.islandId, this.day);
+    this.ui.updateNotebook(this.createNotebookViewModel());
+    if (discovered) void this.saveGame(false);
     this.state = "paused";
     this.exitPointerLock();
     this.ui.showLetter({ ...letter, total: LORE_LETTERS.length });
@@ -1053,6 +1118,10 @@ export class GameApp {
       this.refreshUi();
       return;
     }
+    const observedTarget = this.world?.getLookTarget(this.camera, tool === "wooden_spear" ? 3.4 : 2.5);
+    if (observedTarget && isNotebookAnimalId(observedTarget.kind)) {
+      this.recordAnimalDiscovery(observedTarget.kind);
+    }
     const outcome = this.world?.attack(this.camera, tool) ?? { hit: false };
     if (outcome.hit && tool) this.damageTool(tool, 1);
     if (outcome.loot) this.addLoot(outcome.loot);
@@ -1078,7 +1147,7 @@ export class GameApp {
       const outputItemId = recipe.output.kind === "buildable" ? recipe.output.buildableId : recipe.output.itemId;
       const result = this.inventory.add(outputItemId, recipe.output.quantity);
       if (result.remainder > 0) {
-        this.addLoot(recipe.ingredients);
+        this.addLoot(recipe.ingredients, false);
         break;
       }
       const maxDurability = getMaxDurability(outputItemId);
@@ -1407,7 +1476,10 @@ export class GameApp {
     this.refreshUi();
   }
 
-  private addLoot(loot: readonly LootStack[] | readonly { itemId: ItemId; quantity: number }[]): void {
+  private addLoot(
+    loot: readonly LootStack[] | readonly { itemId: ItemId; quantity: number }[],
+    recordDiscovery = true,
+  ): void {
     for (const entry of loot) {
       const count = "count" in entry ? entry.count : entry.quantity;
       const result = this.inventory.add(entry.itemId, count);
@@ -1417,6 +1489,7 @@ export class GameApp {
         this.ui.addToast({ text: `Inventar voll: ${result.remainder}× ${ITEM_CATALOG[entry.itemId].label} liegen vor dir.`, tone: "warning" });
       }
     }
+    if (recordDiscovery) this.recordLootDiscoveries(loot);
     this.refreshUi();
   }
 
@@ -1701,6 +1774,7 @@ export class GameApp {
       },
       world: this.world.serialize(),
       deathPacks: [],
+      notebook: this.notebook.serialize(),
     };
   }
 
@@ -1709,6 +1783,7 @@ export class GameApp {
     this.onRaft = false;
     this.mapOpen = false;
     this.activeChestId = null;
+    this.notebook = new ExpeditionNotebook(save.notebook);
     this.physics.setPlayerEnabled(true);
     this.equippedShirt = Boolean(save.player.equipment?.wovenShirt);
     this.equippedBackpack = Boolean(save.player.equipment?.backpack);
@@ -2031,6 +2106,37 @@ export class GameApp {
     return { categories, activeCategory: this.currentBuildCategory, options, ...(this.selectedBuild ? { selectedBuildId: this.selectedBuild } : {}) };
   }
 
+  private createNotebookViewModel(): NotebookViewModel {
+    const notebook = this.notebook.serialize();
+    const discoveredLetters = new Set(notebook.discoveredLetterIds);
+    return {
+      storyEntries: LORE_LETTERS
+        .filter((letter) => discoveredLetters.has(letter.id))
+        .sort((left, right) => left.sequence - right.sequence)
+        .map((letter) => ({ ...letter })),
+      islands: notebook.islands.map((entry) => {
+        const island = getIsland(entry.islandId);
+        return {
+          id: island.id,
+          name: island.name,
+          description: island.description,
+          visitedDay: entry.visitedDay,
+          resources: entry.resourceIds.map((itemId) => ({
+            id: itemId,
+            label: ITEM_CATALOG[itemId].label,
+            iconText: ITEM_ICONS[itemId] ?? "◆",
+          })),
+          animals: entry.animalIds.map((animalId) => ({
+            id: animalId,
+            ...NOTEBOOK_ANIMALS[animalId],
+          })),
+        };
+      }),
+      totalStoryEntries: LORE_LETTERS.length,
+      totalIslands: WORLD_MANIFEST.islands.length,
+    };
+  }
+
   private refreshUi(): void {
     if (this.state !== "playing" && this.state !== "paused") return;
     this.ui.updateHud(this.createHudViewModel());
@@ -2038,6 +2144,7 @@ export class GameApp {
     if (this.activeChestId) this.ui.updateStorage(this.createStorageViewModel());
     this.ui.updateCrafting(this.createCraftingViewModel());
     this.ui.updateBuild(this.createBuildViewModel());
+    this.ui.updateNotebook(this.createNotebookViewModel());
   }
 
   private selectedItemId(): ItemId | null {
@@ -2181,11 +2288,92 @@ export class GameApp {
     return this.world?.getIslandAt(position.x, position.z)?.name ?? "Offener Ozean";
   }
 
+  private recordLootDiscoveries(
+    loot: readonly LootStack[] | readonly { itemId: ItemId; quantity: number }[],
+  ): void {
+    const position = this.physics?.getPlayerPosition();
+    const island = position ? this.world?.getIslandAt(position.x, position.z) : null;
+    const islandId = island?.id ?? this.currentIslandId;
+    if (!islandId) return;
+    const discoveries: string[] = [];
+    for (const entry of loot) {
+      if (this.notebook.discoverResource(islandId, entry.itemId, this.day)) {
+        discoveries.push(ITEM_CATALOG[entry.itemId].label);
+      }
+      if (entry.itemId === "crab" && this.notebook.discoverAnimal(islandId, "crab", this.day)) {
+        discoveries.push(NOTEBOOK_ANIMALS.crab.label);
+      }
+      if (entry.itemId === "raw_fish" && this.notebook.discoverAnimal(islandId, "fish", this.day)) {
+        discoveries.push(NOTEBOOK_ANIMALS.fish.label);
+      }
+    }
+    if (discoveries.length === 0) return;
+    this.ui.updateNotebook(this.createNotebookViewModel());
+    this.ui.addToast({
+      id: "notebook-discovery",
+      text: `Notizbuch ergänzt: ${[...new Set(discoveries)].join(", ")}.`,
+      tone: "info",
+      durationMs: 3_600,
+    });
+    void this.saveGame(false);
+  }
+
+  private recordAnimalDiscovery(animalId: NotebookAnimalId): void {
+    const position = this.physics?.getPlayerPosition();
+    const island = position ? this.world?.getIslandAt(position.x, position.z) : null;
+    const islandId = island?.id ?? this.currentIslandId;
+    if (!islandId || !this.notebook.discoverAnimal(islandId, animalId, this.day)) return;
+    this.ui.updateNotebook(this.createNotebookViewModel());
+    this.ui.addToast({
+      id: "notebook-discovery",
+      text: `Tier im Notizbuch vermerkt: ${NOTEBOOK_ANIMALS[animalId].label}.`,
+      tone: "info",
+      durationMs: 3_600,
+    });
+    void this.saveGame(false);
+  }
+
+  private discoverNearbyWildlife(playerPosition: Vec3Like): void {
+    const world = this.world;
+    if (!world) return;
+    const discoveries: NotebookAnimalId[] = [];
+    for (const animal of world.getWildlifePositions()) {
+      const dx = animal.position.x - playerPosition.x;
+      const dz = animal.position.z - playerPosition.z;
+      if (dx * dx + dz * dz > 18 * 18) continue;
+      const island = world.getIslandAt(animal.position.x, animal.position.z);
+      if (island && this.notebook.discoverAnimal(island.id, animal.kind, this.day)) {
+        discoveries.push(animal.kind);
+      }
+    }
+    if (discoveries.length === 0) return;
+    this.ui.updateNotebook(this.createNotebookViewModel());
+    this.ui.addToast({
+      id: "notebook-discovery",
+      text: `Tierwelt entdeckt: ${discoveries.map((id) => NOTEBOOK_ANIMALS[id].label).join(", ")}.`,
+      tone: "info",
+      durationMs: 4_200,
+    });
+    void this.saveGame(false);
+  }
+
   private updateIslandDiscovery(position: Vec3Like): void {
     const island = this.world?.getIslandAt(position.x, position.z);
-    if (!island || island.id === this.currentIslandId) return;
+    if (!island) return;
+    const firstVisit = this.notebook.visitIsland(island.id, this.day);
+    if (firstVisit) {
+      this.ui.updateNotebook(this.createNotebookViewModel());
+      void this.saveGame(false);
+    }
+    if (island.id === this.currentIslandId) return;
     this.currentIslandId = island.id;
-    this.ui.addToast({ text: `${island.name} entdeckt – ${island.description}`, tone: "success", durationMs: 7_000 });
+    this.ui.addToast({
+      text: firstVisit
+        ? `${island.name} entdeckt und ins Notizbuch eingetragen – ${island.description}`
+        : `${island.name} erreicht.`,
+      tone: firstVisit ? "success" : "info",
+      durationMs: firstVisit ? 7_000 : 3_500,
+    });
   }
 
   private defaultSpawn(): Vec3Like {

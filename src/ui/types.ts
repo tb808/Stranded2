@@ -1,6 +1,6 @@
 export type UiPrimaryScreen = 'boot' | 'menu' | 'game';
 
-export type UiPanel = 'inventory' | 'crafting' | 'build' | 'storage';
+export type UiPanel = 'inventory' | 'crafting' | 'build' | 'notebook' | 'storage';
 
 export type UiModal =
   | 'pause'
@@ -133,6 +133,38 @@ export interface StorageViewModel {
   player: InventoryViewModel;
   container: InventoryViewModel;
   hint?: string;
+}
+
+export interface NotebookDiscoveryViewModel {
+  id: string;
+  label: string;
+  iconText: string;
+}
+
+export interface NotebookStoryEntryViewModel {
+  id: string;
+  sequence: number;
+  title: string;
+  dateLabel: string;
+  locationLabel: string;
+  paragraphs: readonly string[];
+  signature: string;
+}
+
+export interface NotebookIslandEntryViewModel {
+  id: string;
+  name: string;
+  description: string;
+  visitedDay: number;
+  resources: readonly NotebookDiscoveryViewModel[];
+  animals: readonly NotebookDiscoveryViewModel[];
+}
+
+export interface NotebookViewModel {
+  storyEntries: readonly NotebookStoryEntryViewModel[];
+  islands: readonly NotebookIslandEntryViewModel[];
+  totalStoryEntries: number;
+  totalIslands: number;
 }
 
 export interface IngredientViewModel {
