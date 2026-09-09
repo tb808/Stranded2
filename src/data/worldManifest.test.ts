@@ -7,7 +7,7 @@ import { WORLD_MANIFEST, getIsland, getStartIsland } from './worldManifest';
 import { Inventory } from '../gameplay/model/inventory';
 
 describe('WORLD_MANIFEST', () => {
-  it('contains the eleven planned, distinct tropical islands in release order', () => {
+  it('contains the fourteen planned, distinct tropical islands in release order', () => {
     expect(WORLD_MANIFEST.islands.map(({ id }) => id)).toEqual([
       'kleine-sandbank',
       'dschungelbucht',
@@ -20,9 +20,12 @@ describe('WORLD_MANIFEST', () => {
       'blueteninsel',
       'mondklippen',
       'schatzsandbank',
+      'westwind-eiland',
+      'nordstern-sandbank',
+      'sonnenrand-insel',
     ]);
-    expect(new Set(WORLD_MANIFEST.islands.map(({ id }) => id))).toHaveLength(11);
-    expect(new Set(WORLD_MANIFEST.islands.map(({ archetype }) => archetype))).toHaveLength(11);
+    expect(new Set(WORLD_MANIFEST.islands.map(({ id }) => id))).toHaveLength(14);
+    expect(new Set(WORLD_MANIFEST.islands.map(({ archetype }) => archetype))).toHaveLength(14);
     expect(WORLD_MANIFEST.islands.every(({ climate }) => climate === 'tropical')).toBe(true);
     expect(WORLD_MANIFEST.islands.every(({ releasePhase }) => releasePhase === 1)).toBe(true);
   });
@@ -47,9 +50,9 @@ describe('WORLD_MANIFEST', () => {
     }
   });
 
-  it('reserves eleven unique fixed positions and keeps the first destination 390 meters from the start', () => {
+  it('reserves fourteen unique fixed positions and keeps the first destination 390 meters from the start', () => {
     const positions = WORLD_MANIFEST.islands.map(({ positionMeters }) => `${positionMeters.x}:${positionMeters.z}`);
-    expect(new Set(positions)).toHaveLength(11);
+    expect(new Set(positions)).toHaveLength(14);
     const start = getIsland('kleine-sandbank').positionMeters;
     const jungle = getIsland('dschungelbucht').positionMeters;
     expect(Math.hypot(jungle.x - start.x, jungle.z - start.z)).toBe(390);
@@ -107,8 +110,12 @@ describe('WORLD_MANIFEST', () => {
       { id: 'blueteninsel', widthMeters: 320, depthMeters: 230 },
       { id: 'mondklippen', widthMeters: 320, depthMeters: 230 },
       { id: 'schatzsandbank', widthMeters: 82, depthMeters: 58 },
+      { id: 'westwind-eiland', widthMeters: 108, depthMeters: 74 },
+      { id: 'nordstern-sandbank', widthMeters: 94, depthMeters: 66 },
+      { id: 'sonnenrand-insel', widthMeters: 118, depthMeters: 82 },
     ]);
-    expect(destinations.filter(({ id }) => id !== 'schatzsandbank').every(({ dimensions }) => (
+    const compactIslandIds = new Set(['schatzsandbank', 'westwind-eiland', 'nordstern-sandbank', 'sonnenrand-insel']);
+    expect(destinations.filter(({ id }) => !compactIslandIds.has(id)).every(({ dimensions }) => (
       dimensions.widthMeters * dimensions.depthMeters >= startArea * 10
     ))).toBe(true);
     const treasure = getIsland('schatzsandbank');
@@ -133,8 +140,25 @@ describe('WORLD_MANIFEST', () => {
     }
   });
 
+  it('places the three new small islands at the distant edges of the navigable archipelago', () => {
+    const start = getStartIsland();
+    const distantIds = ['westwind-eiland', 'nordstern-sandbank', 'sonnenrand-insel'] as const;
+    for (const id of distantIds) {
+      const island = getIsland(id);
+      const distance = Math.hypot(
+        island.positionMeters.x - start.positionMeters.x,
+        island.positionMeters.z - start.positionMeters.z,
+      );
+      const area = island.dimensions.widthMeters * island.dimensions.depthMeters;
+      expect(distance, island.name).toBeGreaterThan(1_150);
+      expect(area, island.name).toBeLessThan(10_000);
+      expect(island.isLarge, island.name).toBe(false);
+    }
+  });
+
   it('adds enough harvestable life to prevent the larger destination islands from feeling empty', () => {
-    const destinations = WORLD_MANIFEST.islands.filter(({ isStart, id }) => !isStart && id !== 'schatzsandbank');
+    const compactIslandIds = new Set(['schatzsandbank', 'westwind-eiland', 'nordstern-sandbank', 'sonnenrand-insel']);
+    const destinations = WORLD_MANIFEST.islands.filter(({ isStart, id }) => !isStart && !compactIslandIds.has(id));
     for (const island of destinations) {
       const totalSources = island.resources.reduce((total, resource) => total + resource.count, 0);
       expect(totalSources, island.name).toBeGreaterThanOrEqual(150);

@@ -112,7 +112,7 @@ export class MainMenuView {
       element(
         'p',
         'main-menu__tagline',
-        'Elf Inseln. Ein Ozean. Baue, überlebe und finde einen Weg durch die Strömung.',
+        'Vierzehn Inseln. Ein Ozean. Baue, überlebe und finde einen Weg durch die Strömung.',
       ),
     );
 

@@ -166,6 +166,48 @@ export const LORE_LETTERS = [
     ],
     signature: 'Elias',
   },
+  {
+    id: 'letter-westwind-islet',
+    islandId: 'westwind-eiland',
+    sequence: 12,
+    title: 'Am westlichen Rand',
+    dateLabel: 'Tag 174',
+    locationLabel: 'Windstein · Westwind-Eiland',
+    paragraphs: [
+      'Der Wind trieb mich weiter nach Westen, als ich je fahren wollte. Das Eiland tauchte erst kurz vor Sonnenuntergang auf: kaum mehr als Fels, Sand und fünf gebeugte Palmen.',
+      'Hinter dem großen Windstein fand ich eine ruhige Stelle für das Feuer. Auf der offenen Seite nimmt jede Böe Funken und lose Fasern mit; im Lee lässt sich die Nacht dagegen gut überstehen.',
+      'Vom höchsten Fels aus ist das übrige Archipel nur noch ein blauer Schatten. Wer hierher kommt, sollte Wasser für die Rückfahrt sparen und den Ostwind abwarten.',
+    ],
+    signature: 'Elias',
+  },
+  {
+    id: 'letter-northstar-sandbar',
+    islandId: 'nordstern-sandbank',
+    sequence: 13,
+    title: 'Unter dem Nordstern',
+    dateLabel: 'Tag 181',
+    locationLabel: 'Korallenstern · Nordstern-Sandbank',
+    paragraphs: [
+      'In der Nacht hielt ich auf den Nordstern zu. Am Morgen lag diese helle Sandbank vor mir, so niedrig, dass die Wellen sie aus der Ferne fast vollständig verbergen.',
+      'Zwischen den Korallen bleiben bei Ebbe flache Tümpel zurück. Krabben und kleine Fische sammeln sich darin, doch Trinkwasser gibt es keines. Die wenigen Kokosnüsse sind deshalb kostbarer als hier jeder Stein.',
+      'Ich legte aus rosafarbenen Korallen einen Stern in den Sand. Er zeigt nach Süden, zurück zu den großen Inseln, falls Wolken den Himmel verdecken.',
+    ],
+    signature: 'Elias Voss',
+  },
+  {
+    id: 'letter-sunrim-island',
+    islandId: 'sonnenrand-insel',
+    sequence: 14,
+    title: 'Wo die Sonne endet',
+    dateLabel: 'Tag 193',
+    locationLabel: 'Horizontfels · Sonnenrand-Insel',
+    paragraphs: [
+      'Noch nie war ich so weit im Südosten. Am Abend steht die Sonne hinter dem ganzen Archipel, und die bekannten Inseln verschwinden lange vor dem letzten Licht.',
+      'Die Bucht ist geschützt und der Palmenhain überraschend dicht. Ich füllte meine Vorräte, besserte das Floß aus und ließ es zwei Tage im warmen Sand trocknen.',
+      'Der einzelne Felskopf ist schon weit draußen auf dem Meer zu erkennen. Er ist mein Wegweiser zurück – und eine Erinnerung daran, dass selbst am Rand der Karte noch Land warten kann.',
+    ],
+    signature: 'Elias',
+  },
 ] as const satisfies readonly LoreLetterDefinition[];
 
 export type LoreLetterId = (typeof LORE_LETTERS)[number]['id'];

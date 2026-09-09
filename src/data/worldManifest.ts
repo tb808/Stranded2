@@ -11,7 +11,10 @@ export type IslandId =
   | 'vulkaninsel'
   | 'blueteninsel'
   | 'mondklippen'
-  | 'schatzsandbank';
+  | 'schatzsandbank'
+  | 'westwind-eiland'
+  | 'nordstern-sandbank'
+  | 'sonnenrand-insel';
 
 export type IslandArchetype =
   | 'sandbank'
@@ -24,7 +27,10 @@ export type IslandArchetype =
   | 'volcanic'
   | 'flower-meadow'
   | 'crescent-cliffs'
-  | 'treasure-sandbar';
+  | 'treasure-sandbar'
+  | 'wind-rock-islet'
+  | 'coral-sandbar'
+  | 'remote-palm-isle';
 
 export type ReleasePhase = 1 | 2;
 
@@ -103,6 +109,9 @@ export type IslandDefinition = WorldIslandManifest;
 export interface WorldManifest {
   readonly id: 'tropical-archipelago';
   readonly islands: readonly [
+    WorldIslandManifest,
+    WorldIslandManifest,
+    WorldIslandManifest,
     WorldIslandManifest,
     WorldIslandManifest,
     WorldIslandManifest,
@@ -420,6 +429,84 @@ export const WORLD_MANIFEST: WorldManifest = {
         { sourceId: 'palm_tree', count: 12, yield: [{ itemId: 'palm_log', quantity: 1 }, { itemId: 'palm_frond', quantity: 4 }] },
         { sourceId: 'coconut', count: 8, yield: [{ itemId: 'coconut', quantity: 1 }] },
         { sourceId: 'crab', count: 7, yield: [{ itemId: 'crab', quantity: 1 }] },
+      ],
+    },
+    {
+      id: 'westwind-eiland',
+      name: 'Westwind-Eiland',
+      archetype: 'wind-rock-islet',
+      description: 'Ein fernes, kleines Felseiland am westlichen Rand des Archipels, ständig von kräftigem Seewind umspült.',
+      visualIdentity: 'Flache graue Felsplatten, wenige windschiefe Palmen und ein schmaler goldener Strand auf der windabgewandten Seite.',
+      landmarks: ['Windstein', 'Leestrand', 'Schiefe Palmen'],
+      safeLanding: { label: 'Leestrand', offsetMeters: { x: 28, z: 4 } },
+      positionMeters: { x: -900, z: 820 },
+      dimensions: { widthMeters: 108, depthMeters: 74 },
+      climate: 'tropical',
+      biomes: ['sand', 'shallows', 'rock', 'cliff'],
+      terrainProfile: { maximumHeightMeters: 8, roughness: 'medium', shoreline: 'mixed' },
+      isStart: false,
+      isLarge: false,
+      hasJungle: false,
+      releasePhase: 1,
+      resources: [
+        { sourceId: 'loose_stick', count: 12, yield: [{ itemId: 'stick', quantity: 1 }] },
+        { sourceId: 'loose_stone', count: 24, yield: [{ itemId: 'stone', quantity: 1 }] },
+        { sourceId: 'fiber_plant', count: 9, yield: [{ itemId: 'fiber', quantity: 4 }] },
+        { sourceId: 'palm_tree', count: 5, yield: [{ itemId: 'palm_log', quantity: 1 }, { itemId: 'palm_frond', quantity: 4 }] },
+        { sourceId: 'coconut', count: 4, yield: [{ itemId: 'coconut', quantity: 1 }] },
+        { sourceId: 'crab', count: 8, yield: [{ itemId: 'crab', quantity: 1 }] },
+      ],
+    },
+    {
+      id: 'nordstern-sandbank',
+      name: 'Nordstern-Sandbank',
+      archetype: 'coral-sandbar',
+      description: 'Eine abgelegene, niedrige Korallensandbank weit im Norden, die nur knapp über dem türkisfarbenen Wasser liegt.',
+      visualIdentity: 'Fast weißer Sand, rosafarbene Korallensteine, flache Gezeitentümpel und ein kleiner lockerer Palmenring.',
+      landmarks: ['Korallenstern', 'Gezeitentümpel', 'Nordstrand'],
+      safeLanding: { label: 'Südliche Sandzunge', offsetMeters: { x: 0, z: -23 } },
+      positionMeters: { x: 800, z: 900 },
+      dimensions: { widthMeters: 94, depthMeters: 66 },
+      climate: 'tropical',
+      biomes: ['sand', 'shallows', 'reef', 'palm-grove'],
+      terrainProfile: { maximumHeightMeters: 4.2, roughness: 'low', shoreline: 'gentle' },
+      isStart: false,
+      isLarge: false,
+      hasJungle: false,
+      releasePhase: 1,
+      resources: [
+        { sourceId: 'loose_stick', count: 15, yield: [{ itemId: 'stick', quantity: 1 }] },
+        { sourceId: 'loose_stone', count: 8, yield: [{ itemId: 'stone', quantity: 1 }] },
+        { sourceId: 'fiber_plant', count: 12, yield: [{ itemId: 'fiber', quantity: 4 }] },
+        { sourceId: 'palm_tree', count: 9, yield: [{ itemId: 'palm_log', quantity: 1 }, { itemId: 'palm_frond', quantity: 4 }] },
+        { sourceId: 'coconut', count: 7, yield: [{ itemId: 'coconut', quantity: 1 }] },
+        { sourceId: 'crab', count: 10, yield: [{ itemId: 'crab', quantity: 1 }] },
+      ],
+    },
+    {
+      id: 'sonnenrand-insel',
+      name: 'Sonnenrand-Insel',
+      archetype: 'remote-palm-isle',
+      description: 'Die fernste kleine Insel im Südosten, ein grüner Punkt am Horizont mit einer geschützten, warmen Bucht.',
+      visualIdentity: 'Dichter Palmenhain, bernsteinfarbener Sand, weiche grasige Hügel und ein weithin sichtbarer einzelner Felskopf.',
+      landmarks: ['Sonnenbucht', 'Palmenhügel', 'Horizontfels'],
+      safeLanding: { label: 'Sonnenbucht', offsetMeters: { x: -34, z: 12 } },
+      positionMeters: { x: 1_650, z: -700 },
+      dimensions: { widthMeters: 118, depthMeters: 82 },
+      climate: 'tropical',
+      biomes: ['sand', 'shallows', 'palm-grove', 'meadow'],
+      terrainProfile: { maximumHeightMeters: 7, roughness: 'low', shoreline: 'gentle' },
+      isStart: false,
+      isLarge: false,
+      hasJungle: false,
+      releasePhase: 1,
+      resources: [
+        { sourceId: 'loose_stick', count: 22, yield: [{ itemId: 'stick', quantity: 1 }] },
+        { sourceId: 'loose_stone', count: 11, yield: [{ itemId: 'stone', quantity: 1 }] },
+        { sourceId: 'fiber_plant', count: 18, yield: [{ itemId: 'fiber', quantity: 4 }] },
+        { sourceId: 'palm_tree', count: 16, yield: [{ itemId: 'palm_log', quantity: 1 }, { itemId: 'palm_frond', quantity: 4 }] },
+        { sourceId: 'coconut', count: 13, yield: [{ itemId: 'coconut', quantity: 1 }] },
+        { sourceId: 'crab', count: 10, yield: [{ itemId: 'crab', quantity: 1 }] },
       ],
     },
   ],

@@ -1,6 +1,6 @@
 # Stranded2
 
-Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne Desktop-Browser. Das feste Archipel besteht aus elf vollständig erzeugten und bereisbaren tropischen Inseln.
+Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne Desktop-Browser. Das feste Archipel besteht aus vierzehn vollständig erzeugten und bereisbaren tropischen Inseln.
 
 ## Inseln
 
@@ -15,10 +15,13 @@ Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne
 - **Blüteninsel (320 × 230 m):** sanfte Wieseninsel mit Zwillingshügeln, dichtem Blütenmeer und altem Steinkreis.
 - **Mondklippen (320 × 230 m):** halbmondförmige Kalkinsel mit eingeschnittener Westbucht, hellen Felstürmen und windigem Grat.
 - **Schatzsandbank (82 × 58 m):** kompakte Sandinsel mit einer halb vergrabenen Truhe, Schaufel-Bauplan und einer Karte zu einer noch unbekannten Rieseninsel.
+- **Westwind-Eiland (108 × 74 m):** fernes, windiges Felseiland mit schmalem Leestrand und wenigen schiefen Palmen.
+- **Nordstern-Sandbank (94 × 66 m):** sehr flache Koralleninsel am nördlichen Kartenrand mit Gezeitentümpeln und hellem Sand.
+- **Sonnenrand-Insel (118 × 82 m):** abgelegene Palmeninsel im Südosten mit geschützter Bucht und markantem Felskopf.
 
 Die verbindlichen Positionen, Größen, Biome, Beschreibungen, Landmarken, sicheren Landestellen und Ressourcenregeln stehen in `src/data/worldManifest.ts`.
 
-Unter Wasser gehen die Inselstrände in einen hellen, leicht gewellten Sandboden über. Kleine Schwärme aus dem Kenney-Survival-Kit schwimmen in den Küstenringen der elf Inseln; drei zusätzliche Schwärme beleben die geschützte Palmenlagune, während der offene Ozean fischfrei bleibt.
+Unter Wasser gehen die Inselstrände in einen hellen, leicht gewellten Sandboden über. Kleine Schwärme aus dem Kenney-Survival-Kit schwimmen in den Küstenringen der vierzehn Inseln; drei zusätzliche Schwärme beleben die geschützte Palmenlagune, während der offene Ozean fischfrei bleibt.
 
 Das Meer reagiert dynamisch auf Wetter und Tageszeit. Bei Hitze liegt es ruhiger, Regen erzeugt kräftigere Kreuzwellen und im Gewitter entstehen hohe, dunklere Wellen mit sichtbaren Schaumkämmen; zugleich pulsiert die Brandung um jede Insel. Eine langsame Gezeit hebt und senkt den Wasserspiegel. Dieselben Wellen und Strömungen wirken auf die Floßauftriebspunkte und treiben Schwimmer sowie ungesicherte Flöße ab. Auch die Meeresbrandung wird bei rauem Wetter hörbar kräftiger.
 
@@ -64,7 +67,7 @@ Regen und Gewitter kühlen die Spielfigur aus. Ohne angezogenes Schutzhemd oder 
 
 Ein vollständiger Zeitzyklus dauert sieben Echtzeit-Minuten: fünf Minuten Tageslicht und zwei Minuten Nacht.
 
-Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt Lage und Größe aller elf vorhandenen Inseln. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
+Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt Lage und Größe aller vierzehn vorhandenen Inseln; die drei kleinen Außeninseln markieren den westlichen, nördlichen und südöstlichen Rand. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
 
 Das Expeditions-Notizbuch wird mit `N` geöffnet. Im Story-Teil werden alle bereits gelesenen Briefe von Elias dauerhaft zum Nachlesen gesammelt. Der Insel-Teil verzeichnet jede betretene Insel sowie die dort tatsächlich gefundenen Rohstoffe und beobachteten Tierarten. Dadurch lässt sich später gezielt nachschlagen, wo sich ein benötigtes Material farmen lässt. Alle Einträge werden automatisch im Spielstand gespeichert.
 

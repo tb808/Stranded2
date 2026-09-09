@@ -92,6 +92,9 @@ const LORE_LETTER_PLACEMENTS = {
   "letter-flower-stone-circle": { x: 4, z: 13, rotationY: 0.3 },
   "letter-moon-cliffs": { x: 54, z: -4, rotationY: -0.7 },
   "letter-treasure-sandbar": { x: -9, z: 7, rotationY: 0.35 },
+  "letter-westwind-islet": { x: 8, z: 7, rotationY: -0.42 },
+  "letter-northstar-sandbar": { x: -7, z: 5, rotationY: 0.28 },
+  "letter-sunrim-island": { x: 10, z: 8, rotationY: -0.2 },
 } as const satisfies Readonly<Record<LoreLetterId, { x: number; z: number; rotationY: number }>>;
 type HutBuildableId = Extract<BuildableId, "hut_foundation" | "hut_wall" | "hut_doorway" | "hut_roof">;
 type FoundationSupportDepths = readonly [number, number, number, number];
@@ -114,6 +117,9 @@ const ISLAND_TERRAIN_SEEDS: Readonly<Record<IslandId, number>> = {
   blueteninsel: 173,
   mondklippen: 197,
   schatzsandbank: 223,
+  "westwind-eiland": 241,
+  "nordstern-sandbank": 263,
+  "sonnenrand-insel": 281,
 };
 
 interface TerrainRise {
@@ -458,6 +464,9 @@ const KIT_LANDMARK_CLEARINGS: Readonly<Partial<Record<IslandId, readonly {
     { x: -50, z: 64, radius: 14 },
   ],
   schatzsandbank: [{ x: 7, z: 0, radius: 10 }],
+  "westwind-eiland": [{ x: -12, z: -2, radius: 8 }],
+  "nordstern-sandbank": [{ x: 0, z: 0, radius: 9 }],
+  "sonnenrand-insel": [{ x: 5, z: 0, radius: 9 }],
 };
 
 const ORIGINAL_ISLAND_DIMENSIONS: Readonly<Record<IslandId, IslandDimensions>> = {
@@ -472,6 +481,9 @@ const ORIGINAL_ISLAND_DIMENSIONS: Readonly<Record<IslandId, IslandDimensions>> =
   blueteninsel: { widthMeters: 320, depthMeters: 230 },
   mondklippen: { widthMeters: 320, depthMeters: 230 },
   schatzsandbank: { widthMeters: 82, depthMeters: 58 },
+  "westwind-eiland": { widthMeters: 108, depthMeters: 74 },
+  "nordstern-sandbank": { widthMeters: 94, depthMeters: 66 },
+  "sonnenrand-insel": { widthMeters: 118, depthMeters: 82 },
 };
 
 export type WildlifeKind = "wild_boar" | "chicken" | "turtle" | "bird" | "crocodile" | "snake";
@@ -497,6 +509,9 @@ export const ISLAND_WILDLIFE: Readonly<Partial<Record<IslandId, Readonly<IslandW
   blueteninsel: { wildBoars: 3, chickens: 10, turtles: 3, birds: 6, crocodiles: 0, snakes: 0 },
   mondklippen: { wildBoars: 2, chickens: 4, turtles: 4, birds: 7, crocodiles: 0, snakes: 0 },
   schatzsandbank: { wildBoars: 0, chickens: 0, turtles: 1, birds: 2, crocodiles: 0, snakes: 0 },
+  "westwind-eiland": { wildBoars: 0, chickens: 0, turtles: 2, birds: 3, crocodiles: 0, snakes: 0 },
+  "nordstern-sandbank": { wildBoars: 0, chickens: 2, turtles: 3, birds: 2, crocodiles: 0, snakes: 0 },
+  "sonnenrand-insel": { wildBoars: 1, chickens: 4, turtles: 2, birds: 3, crocodiles: 0, snakes: 0 },
 };
 
 export const WORLD_SCENERY_MODEL_IDS = [
@@ -1955,12 +1970,12 @@ export class TropicalWorld {
   }
 
   private spawnIslandGroundCover(island: WorldIslandManifest, rng: SeededRandom): void {
-    if (island.archetype === "rock-reef" || island.archetype === "volcanic") {
+    if (island.archetype === "rock-reef" || island.archetype === "volcanic" || island.archetype === "wind-rock-islet") {
       this.spawnKitRockField(island, rng);
       return;
     }
     const area = island.dimensions.widthMeters * island.dimensions.depthMeters;
-    const totalCount = Math.min(520, Math.max(80, Math.round(area / 320)));
+    const totalCount = Math.min(520, Math.max(area < 10_000 ? 28 : 80, Math.round(area / 320)));
     const definitions = [
       { assetId: "nature.grass", minHeight: 0.38, maxHeight: 0.72, widthFactor: 0.9, castsShadow: false },
       { assetId: "nature.grass-leafs", minHeight: 0.45, maxHeight: 0.88, widthFactor: 0.98, castsShadow: false },
@@ -2751,6 +2766,7 @@ export class TropicalWorld {
     this.spawnFlowerStoneCircle(getIsland("blueteninsel"));
     this.spawnRemainingIslandGameplay();
     this.spawnTreasureSandbarGameplay();
+    this.spawnDistantSmallIslandLandmarks();
     this.spawnRockSpires(getIsland("mondklippen"), [
       { x: -47, z: -62, height: 15, radius: 5.5 },
       { x: -50, z: 64, height: 18, radius: 6.2 },
@@ -2852,6 +2868,24 @@ export class TropicalWorld {
         "nature.grass-large",
         "nature.bush-detailed",
         "nature.rock-small-flat",
+      ],
+      "westwind-eiland": [
+        "nature.rock-small-b",
+        "nature.rock-small-flat",
+        "nature.rock-large-b",
+        "nature.grass",
+      ],
+      "nordstern-sandbank": [
+        "nature.rock-small-flat",
+        "nature.flower-yellow",
+        "nature.grass",
+        "nature.grass-large",
+      ],
+      "sonnenrand-insel": [
+        "nature.grass-large",
+        "nature.grass-leafs",
+        "nature.bush-detailed",
+        "nature.flower-red",
       ],
     };
 
@@ -3562,6 +3596,28 @@ export class TropicalWorld {
       moon.positionMeters.z - 2,
       0.35,
     );
+  }
+
+  private spawnDistantSmallIslandLandmarks(): void {
+    this.spawnRockSpires(getIsland("westwind-eiland"), [
+      { x: -12, z: -2, height: 7, radius: 2.4 },
+    ]);
+    this.spawnRockSpires(getIsland("sonnenrand-insel"), [
+      { x: 5, z: 0, height: 9, radius: 2.8 },
+    ]);
+    const north = getIsland("nordstern-sandbank");
+    const coralStar = Array.from({ length: 10 }, (_, index) => {
+      const arm = index % 2 === 0 ? 5.5 : 2.7;
+      const angle = index / 10 * Math.PI * 2;
+      return {
+        assetId: "nature.rock-small-flat",
+        x: Math.cos(angle) * arm,
+        z: Math.sin(angle) * arm,
+        height: index % 2 === 0 ? 0.7 : 0.42,
+        rotationY: -angle,
+      };
+    });
+    this.spawnKitSceneryCluster("Landmarke: Korallenstern", north, coralStar, 420);
   }
 
   private spawnTreasureSandbarGameplay(): void {
