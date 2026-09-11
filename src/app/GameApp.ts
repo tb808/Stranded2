@@ -1888,7 +1888,7 @@ export class GameApp {
         playerX: position.x,
         playerZ: position.z,
         headingDegrees: heading,
-        locationLabel: currentIsland?.name ?? "Offener Ozean",
+        locationLabel: currentIsland?.requiresTreasureMap && !this.world?.isGiantIslandCharted() ? "Unkartiertes Gebiet" : currentIsland?.name ?? "Offener Ozean",
         islands: getChartedIslands(this.world?.isGiantIslandCharted() ?? false).map((island) => ({
           id: island.id,
           label: island.name,
@@ -2443,6 +2443,7 @@ export class GameApp {
         this.pitch = 0;
         this.physics?.setPlayerPosition({ x, y: (this.world?.heightAt(x, z) ?? 2) + 1, z });
       },
+      interact: () => this.interact(),
       swingTool: () => this.toolView.triggerUse(),
       attack: () => {
         this.toolView.triggerUse();

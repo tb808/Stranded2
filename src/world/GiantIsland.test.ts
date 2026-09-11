@@ -1,4 +1,4 @@
-import { Box3, Group, InstancedMesh, Matrix4, Vector3 } from 'three';
+import { Box3, Group, InstancedMesh, Matrix4, PerspectiveCamera, Vector3 } from 'three';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AssetService } from '../assets/AssetService';
 import type { RapierPhysicsWorld } from '../physics/RapierPhysicsWorld';
@@ -37,6 +37,28 @@ describe('Rieseninsel expedition', () => {
       expect(world.heightAt(center.x + GIANT_CAMP.x + x, center.z + GIANT_CAMP.z + z)).toBe(14);
     }
     expect(world.collect('rieseninsel-lake')).toMatchObject({ success: true, loot: [] });
+  });
+
+  it('keeps the route from the landing to camp walkable across the beach transition', () => {
+    const points = [[4040,3540],[4150,3575],[4270,3625],[4380,3680]];
+    for (let segment=0; segment<points.length-1; segment++) {
+      const a=points[segment]!, b=points[segment+1]!;
+      let previous=world.heightAt(a[0]!,a[1]!);
+      for(let step=1;step<=160;step++) {
+        const t=step/160;
+        const height=world.heightAt(a[0]!+(b[0]!-a[0]!)*t,a[1]!+(b[1]!-a[1]!)*t);
+        expect(height).toBeGreaterThan(0.8);
+        expect(Math.abs(height-previous)).toBeLessThan(0.3);
+        previous=height;
+      }
+    }
+  });
+
+  it('rejects building placements on the submerged lake floor', () => {
+    const camera=new PerspectiveCamera();
+    camera.position.set(4600,11,3803.5);camera.lookAt(4600,4,3800);camera.updateMatrixWorld(true);
+    expect(world.getPlacementPosition(camera,'shelter',0).valid).toBe(false);
+    expect(world.getHutPlacementAt('hut_foundation',4600,3800).valid).toBe(false);
   });
 
   it('grounds all camp props and Elias without intersecting bounding boxes', () => {

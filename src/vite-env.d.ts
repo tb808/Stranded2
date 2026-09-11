@@ -11,6 +11,7 @@ declare global {
       teleport(x: number, y: number, z: number): void;
       lookAt(x: number, y: number, z: number): void;
       teleportToIsland(island: "start" | "jungle" | import("./data/worldManifest").IslandId): void;
+      interact(): void;
       swingTool(): void;
       attack(): void;
       craft(recipeId: RecipeId): void;

@@ -1625,7 +1625,7 @@ export class TropicalWorld {
       Math.abs(this.heightAt(x + 0.8, z) - terrainY),
       Math.abs(this.heightAt(x, z + 0.8) - terrainY),
     );
-    const valid = terrainY > 0.15 && slope < 0.75 && !this.overlapsBuilding(position, 1.7);
+    const valid = terrainY > this.getWaterSurfaceAt(x, z) + 0.15 && slope < 0.75 && !this.overlapsBuilding(position, 1.7);
     void rotationY;
     return { position, rotationY, valid, reason: valid ? "" : "Hier ist der Boden zu steil oder blockiert." };
   }
@@ -4196,7 +4196,7 @@ export class TropicalWorld {
         const habitatValid = !blockedCamp && (animal.kind === "bird"
           || animal.kind === "turtle" && nextGround > (giantHabitat ? 9.7 : 0.04) && nextGround < (giantHabitat ? 17 : 3)
           || animal.kind === "crocodile" && nextGround > (giantHabitat ? 9.5 : -0.45) && nextGround < (giantHabitat ? 17 : 3.6)
-          || nextGround > 0.4) && !(giantHabitat && nextGround < 9.5 && Math.hypot((nextX - 4600) / 180, (nextZ - 3800) / 135) < 1.2);
+          || (animal.kind !== "turtle" && animal.kind !== "crocodile" || !giantHabitat) && nextGround > 0.4) && !(giantHabitat && nextGround < 9.5 && Math.hypot((nextX - 4600) / 180, (nextZ - 3800) / 135) < 1.2);
         if (habitatValid && (state === "alerted" || state === "drinking" || distanceSquaredXZ({ x: nextX, y: nextGround, z: nextZ }, home) < (orbitRadius + 8) ** 2)) {
           animal.object.position.x = nextX;
           animal.object.position.z = nextZ;
@@ -4730,8 +4730,9 @@ export class TropicalWorld {
       const blocked = [...this.buildings.values()].some((building) =>
         !isHutBuildable(building.type) && distanceSquaredXZ(building.position, snapped) < 5.3,
       );
-      const valid = lowest > 0.12 && highest - lowest <= 2.4 && !duplicate && !blocked;
-      const reason = lowest <= 0.12
+      const surface = this.getWaterSurfaceAt(snapped.x, snapped.z);
+      const valid = lowest > surface + 0.12 && highest - lowest <= 2.4 && !duplicate && !blocked;
+      const reason = lowest <= surface + 0.12
         ? "Fundamente brauchen festen Inselboden."
         : highest - lowest > 2.4
           ? "Das Gefälle ist selbst für Stützpfeiler zu groß."
@@ -5246,10 +5247,9 @@ function rawIslandHeightAt(x: number, z: number, island: WorldIslandManifest): n
       return 0.78 + landingNoise;
     }
   }
-  if (island.id === 'rieseninsel') {
-    const landingDistance = Math.hypot(dx-island.safeLanding.offsetMeters.x,dz-island.safeLanding.offsetMeters.z);
-    if (landingDistance < 26) return 1.1;
-    if (landingDistance < 42 && normalized >= 0.79) return 1.1 * (1-smoothstep(26,42,landingDistance)) + (-0.6+(0.92-normalized)/0.13*1.25)*smoothstep(26,42,landingDistance);
+  if (island.id === 'rieseninsel' && normalized >= 0.79) {
+    const beach = normalized >= 0.92 ? -8 + (1.08-normalized)/0.16*7.4 : -0.6+(0.92-normalized)/0.13*1.25;
+    return giantTrailHeight(dx, dz, beach);
   }
   if (normalized >= 0.92) return -8 + (1.08 - normalized) / 0.16 * 7.4;
   if (normalized >= 0.79) return -0.6 + (0.92 - normalized) / 0.13 * 1.25;
@@ -5344,18 +5344,28 @@ function rawIslandHeightAt(x: number, z: number, island: WorldIslandManifest): n
     // A continuous, dry lake rim; a broad, truly level camp with feathered edges.
     const lakeDistance = Math.hypot(dx / GIANT_LAKE.radiusX, dz / GIANT_LAKE.radiusZ);
     height += (12.5-height)*(1-smoothstep(1.35,1.9,lakeDistance));
-    for (let i = 0; i < GIANT_TRAIL.length - 1; i++) {
-      const a = GIANT_TRAIL[i]!, b = GIANT_TRAIL[i + 1]!;
-      const t = clamp(((dx-a.x)*(b.x-a.x)+(dz-a.z)*(b.z-a.z))/((b.x-a.x)**2+(b.z-a.z)**2),0,1);
-      const distance = Math.hypot(dx-a.x-(b.x-a.x)*t,dz-a.z-(b.z-a.z)*t);
-      const blend = 1-smoothstep(5,16,distance);
-      height += (a.y+(b.y-a.y)*t-height)*blend;
-    }
+    height = giantTrailHeight(dx, dz, height);
     height += (GIANT_CAMP.y-height)*(1-smoothstep(30,48,Math.hypot(dx-GIANT_CAMP.x,dz-GIANT_CAMP.z)));
   }
   if (island.archetype === "mangrove-bay") height = Math.min(height, 6.8);
   height = Math.max(island.archetype === "mangrove-bay" || island.archetype === "palm-lagoon" ? 0.12 : 0.35, height);
   return Math.min(height, island.terrainProfile.maximumHeightMeters + 2.5);
+}
+
+function giantTrailHeight(x: number, z: number, rawHeight: number): number {
+  let height = rawHeight;
+  for (let i = 0; i < GIANT_TRAIL.length - 1; i++) {
+    const from = GIANT_TRAIL[i]!;
+    const to = GIANT_TRAIL[i + 1]!;
+    const dx = to.x - from.x;
+    const dz = to.z - from.z;
+    const t = clamp(((x - from.x) * dx + (z - from.z) * dz) / (dx * dx + dz * dz), 0, 1);
+    const distance = Math.hypot(x - from.x - dx * t, z - from.z - dz * t);
+    height += (from.y + (to.y - from.y) * t - height) * (1 - smoothstep(5, 16, distance));
+  }
+  const landing = GIANT_TRAIL[0];
+  const blend = 1 - smoothstep(14, 26, Math.hypot(x - landing.x, z - landing.z));
+  return height + (landing.y - height) * blend;
 }
 
 function startIslandHeightAt(x: number, z: number, island: WorldIslandManifest, normalized: number, seed: number): number {

@@ -158,12 +158,14 @@ test("ein beschädigter aktueller Spielstand fällt auf das letzte Backup zurüc
     return snapshot?.state === "playing";
   });
 
+  // Island and wildlife discoveries also autosave. Pause the simulation so the
+  // two deliberate saves below define the current/backup pair deterministically.
+  await page.evaluate(() => window.__stranded2Debug!.readLetter("letter-start-beach"));
+  await expect(page.getByRole("button", { name: "Brief schließen" })).toBeVisible();
   await page.evaluate(() => window.__stranded2Debug!.teleportToIsland("start"));
   await page.evaluate(() => window.__stranded2Debug!.save());
-  await page.waitForTimeout(150);
   await page.evaluate(() => window.__stranded2Debug!.teleportToIsland("jungle"));
   await page.evaluate(() => window.__stranded2Debug!.save());
-  await page.waitForTimeout(150);
 
   await page.evaluate(async () => {
     await new Promise<void>((resolve, reject) => {
