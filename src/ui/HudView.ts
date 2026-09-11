@@ -183,23 +183,36 @@ export class HudView {
 
   private updateMap(model: HudMapViewModel): void {
     clear(this.mapSvg);
-    const projection = createMapProjection(model.islands, 320, 190);
+    const expanded = model.islands.some((island) => island.id === 'rieseninsel');
+    this.map.dataset.expanded = String(expanded);
+    this.mapSvg.setAttribute('viewBox', expanded ? '0 0 640 190' : '0 0 320 190');
+    this.mapSvg.style.aspectRatio = expanded ? '640 / 190' : '320 / 190';
+    const panels = expanded
+      ? [{ islands: model.islands.filter((island) => island.id !== 'rieseninsel'), offset: 0, overview: false },
+         { islands: model.islands, offset: 320, overview: true }]
+      : [{ islands: model.islands, offset: 0, overview: false }];
     const ns = 'http://www.w3.org/2000/svg';
+    for (const panel of panels) {
+    const projection = createMapProjection(panel.islands, 320, 190);
+    const layer = document.createElementNS(ns, 'g');
+    layer.setAttribute('transform', 'translate(' + panel.offset + ' 0)');
+    layer.setAttribute('aria-label', panel.overview ? 'Fernreise zur Rieseninsel' : 'Bekanntes Archipel');
+    this.mapSvg.append(layer);
 
     const ocean = document.createElementNS(ns, 'rect');
     ocean.setAttribute('class', 'hud-map__ocean');
     ocean.setAttribute('width', '320');
     ocean.setAttribute('height', '190');
-    this.mapSvg.append(ocean);
+    layer.append(ocean);
 
     const north = document.createElementNS(ns, 'text');
     north.setAttribute('class', 'hud-map__north');
     north.setAttribute('x', '160');
     north.setAttribute('y', '11');
     north.textContent = 'N';
-    this.mapSvg.append(north);
+    layer.append(north);
 
-    for (const island of model.islands) {
+    for (const island of panel.islands) {
       const center = projection.project(island.x, island.z);
       const shape = document.createElementNS(ns, 'ellipse');
       shape.setAttribute('class', 'hud-map__island');
@@ -209,7 +222,8 @@ export class HudView {
       shape.setAttribute('ry', Math.max(1.8, projection.scaleLength(island.depth / 2)).toFixed(2));
       shape.dataset.start = String(island.isStart);
       shape.dataset.current = String(island.isCurrent);
-      this.mapSvg.append(shape);
+      layer.append(shape);
+      const title = document.createElementNS(ns, "title"); title.textContent = island.label; shape.append(title);
 
       const label = document.createElementNS(ns, 'text');
       label.setAttribute('class', 'hud-map__island-label');
@@ -217,7 +231,13 @@ export class HudView {
       label.setAttribute('y', (center.y - Math.max(3.2, projection.scaleLength(island.depth / 2)) - 2).toFixed(2));
       label.dataset.current = String(island.isCurrent);
       label.textContent = island.label;
-      this.mapSvg.append(label);
+      if (!panel.overview || island.isCurrent || island.isStart || island.id === 'rieseninsel') layer.append(label);
+      if (island.id === 'rieseninsel') {
+        const lake = document.createElementNS(ns, 'ellipse');
+        lake.setAttribute('cx', center.x.toFixed(2)); lake.setAttribute('cy', center.y.toFixed(2));
+        lake.setAttribute('rx', projection.scaleLength(180).toFixed(2)); lake.setAttribute('ry', projection.scaleLength(135).toFixed(2));
+        lake.setAttribute('fill', '#42a6b6'); layer.append(lake);
+      }
     }
 
     const projectedPlayer = clampMapPoint(projection.project(model.playerX, model.playerZ), 320, 190);
@@ -225,7 +245,8 @@ export class HudView {
     player.setAttribute('class', 'hud-map__player');
     player.setAttribute('points', '0,-7 5.5,6 0,3 -5.5,6');
     player.setAttribute('transform', `translate(${projectedPlayer.x.toFixed(2)} ${projectedPlayer.y.toFixed(2)}) rotate(${normalizeDegrees(model.headingDegrees).toFixed(1)})`);
-    this.mapSvg.append(player);
+    layer.append(player);
+    }
 
     this.mapLocation.textContent = model.locationLabel;
     this.mapSvg.setAttribute('aria-label', `Karte. Du bist bei ${model.locationLabel} und blickst ${cardinalDirection(model.headingDegrees)}.`);

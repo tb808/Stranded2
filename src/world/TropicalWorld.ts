@@ -77,6 +77,12 @@ const VOLCANIC_LAVA_PATHS = [
   [{ x: 10, z: 1 }, { x: 27, z: 14 }, { x: 48, z: 33 }, { x: 72, z: 49 }],
   [{ x: 7, z: -9 }, { x: 20, z: -27 }, { x: 35, z: -48 }, { x: 50, z: -69 }],
 ] as const;
+export const GIANT_CAMP = { x: -220, z: -120, y: 14, radius: 32 } as const;
+export const GIANT_LAKE = { radiusX: 180, radiusZ: 135, surfaceY: 10 } as const;
+const GIANT_TRAIL = [
+  { x: -560, z: -260, y: 1.1 }, { x: -450, z: -225, y: 5 },
+  { x: -330, z: -175, y: 10 }, { x: -220, z: -120, y: 14 },
+] as const;
 const TREASURE_CHEST_ID = "treasure-sandbar-buried-chest";
 const TREASURE_CHEST_DUG_MARKER = "treasure-sandbar-chest-dug";
 
@@ -94,6 +100,7 @@ const LORE_LETTER_PLACEMENTS = {
   "letter-treasure-sandbar": { x: -9, z: 7, rotationY: 0.35 },
   "letter-westwind-islet": { x: 8, z: 7, rotationY: -0.42 },
   "letter-northstar-sandbar": { x: -7, z: 5, rotationY: 0.28 },
+  "letter-giant-camp": { x: -235, z: -128, rotationY: 0.4 },
   "letter-sunrim-island": { x: 10, z: 8, rotationY: -0.2 },
 } as const satisfies Readonly<Record<LoreLetterId, { x: number; z: number; rotationY: number }>>;
 type HutBuildableId = Extract<BuildableId, "hut_foundation" | "hut_wall" | "hut_doorway" | "hut_roof">;
@@ -120,6 +127,7 @@ const ISLAND_TERRAIN_SEEDS: Readonly<Record<IslandId, number>> = {
   "westwind-eiland": 241,
   "nordstern-sandbank": 263,
   "sonnenrand-insel": 281,
+  rieseninsel: 307,
 };
 
 interface TerrainRise {
@@ -186,6 +194,19 @@ interface ResolvedFreshwaterBasin {
 type ResolvedWatercoursePoint = WatercoursePoint & { surfaceY: number };
 
 export const ISLAND_TERRAIN_STRUCTURES: Readonly<Partial<Record<IslandId, IslandTerrainStructure>>> = {
+  rieseninsel: {
+    baseHeightFactor: 0.3, terraceStep: 4, terraceBlend: 0.12,
+    rises: [
+      { x: -0.3, z: 0.43, radiusX: 0.38, radiusZ: 0.3, height: 88 },
+      { x: 0.18, z: 0.49, radiusX: 0.36, radiusZ: 0.28, height: 98 },
+      { x: 0.52, z: 0.1, radiusX: 0.3, radiusZ: 0.45, height: 76 },
+      { x: 0.23, z: -0.48, radiusX: 0.32, radiusZ: 0.28, height: 56 },
+    ],
+    gorges: [
+      {fromX:-0.18,fromZ:0.26,toX:-0.04,toZ:0.7,width:0.05,depth:14},
+      {fromX:0.3,fromZ:0.16,toX:0.68,toZ:0.35,width:0.045,depth:12},
+    ],
+  },
   dschungelbucht: {
     baseHeightFactor: 0.2,
     terraceStep: 2.4,
@@ -326,6 +347,9 @@ export const ISLAND_TERRAIN_STRUCTURES: Readonly<Partial<Record<IslandId, Island
 };
 
 const FRESHWATER_BASINS: readonly FreshwaterBasinDefinition[] = [
+  { id: 'rieseninsel-lake', name: 'Smaragdsee', islandId: 'rieseninsel',
+    normalizedX: 0, normalizedZ: 0, radiusX: GIANT_LAKE.radiusX, radiusZ: GIANT_LAKE.radiusZ,
+    depth: 6, surfaceInset: 0, fixedSurfaceY: GIANT_LAKE.surfaceY },
   {
     id: "freshwater-spring",
     name: "Dschungelquellteich",
@@ -434,6 +458,7 @@ const KIT_LANDMARK_CLEARINGS: Readonly<Partial<Record<IslandId, readonly {
   z: number;
   radius: number;
 }[]>>> = {
+  rieseninsel: [GIANT_CAMP],
   dschungelbucht: [
     { x: 89, z: -40, radius: 25 },
     { x: -65, z: 62, radius: 19 },
@@ -484,6 +509,7 @@ const ORIGINAL_ISLAND_DIMENSIONS: Readonly<Record<IslandId, IslandDimensions>> =
   "westwind-eiland": { widthMeters: 108, depthMeters: 74 },
   "nordstern-sandbank": { widthMeters: 94, depthMeters: 66 },
   "sonnenrand-insel": { widthMeters: 118, depthMeters: 82 },
+  rieseninsel: { widthMeters: 1600, depthMeters: 1200 },
 };
 
 export type WildlifeKind = "wild_boar" | "chicken" | "turtle" | "bird" | "crocodile" | "snake";
@@ -499,6 +525,7 @@ interface IslandWildlifeCounts {
 }
 
 export const ISLAND_WILDLIFE: Readonly<Partial<Record<IslandId, Readonly<IslandWildlifeCounts>>>> = {
+  rieseninsel: { wildBoars: 18, chickens: 24, turtles: 12, birds: 20, crocodiles: 8, snakes: 14 },
   dschungelbucht: { wildBoars: 8, chickens: 10, turtles: 2, birds: 3, crocodiles: 0, snakes: 4 },
   palmenlagune: { wildBoars: 2, chickens: 9, turtles: 5, birds: 4, crocodiles: 0, snakes: 0 },
   mangrovenbucht: { wildBoars: 4, chickens: 6, turtles: 3, birds: 4, crocodiles: 5, snakes: 5 },
@@ -559,7 +586,7 @@ export const WORLD_SCENERY_MODEL_IDS = [
   "environment.volcano",
 ] as const;
 
-export type WorldEntityKind = ItemId | "palm" | "tree" | "crab" | WildlifeKind | "shark" | "freshwater" | "brackwater" | "wreck_chest" | "summit_cache" | "crater_cache" | "waterfall_cache" | "moon_cache" | "buried_chest" | "signal_beacon" | "climbing_anchor" | "death_pack" | "lore_letter" | "building" | "raft";
+export type WorldEntityKind = ItemId | "palm" | "tree" | "crab" | WildlifeKind | "shark" | "elias" | "freshwater" | "brackwater" | "wreck_chest" | "summit_cache" | "crater_cache" | "waterfall_cache" | "moon_cache" | "buried_chest" | "signal_beacon" | "climbing_anchor" | "death_pack" | "lore_letter" | "building" | "raft";
 
 export interface LootStack {
   itemId: ItemId;
@@ -752,6 +779,8 @@ export class TropicalWorld {
   private skyObject: Mesh | null = null;
   private raft: RaftState | null = null;
   private shark: WorldEntity | null = null;
+  private readonly butterflies: Group[] = [];
+  private eliasFlame: Object3D | null = null;
   private wreckLooted = false;
   private elapsedSeconds = 0;
   private currentDay = 1;
@@ -842,7 +871,20 @@ export class TropicalWorld {
   }
 
   public isDeepWater(x: number, z: number): boolean {
-    return this.heightAt(x, z) < -2.5;
+    return this.heightAt(x, z) < this.getWaterSurfaceAt(x, z) - 2.5;
+  }
+
+  public isGiantIslandCharted(): boolean {
+    // The looted chest is already saved permanently, including in older saves.
+    return this.removedEntityIds.has(TREASURE_CHEST_ID);
+  }
+
+  public getWaterSurfaceAt(x: number, z: number): number {
+    const island = getIsland('rieseninsel');
+    const basin = resolveFreshwaterBasin(FRESHWATER_BASINS[0]!, island);
+    return organicBasinDistance(x - island.positionMeters.x, z - island.positionMeters.z,
+      basin, freshwaterBasinShoreSeed(FRESHWATER_BASINS[0]!, island)) < 0.92
+      ? GIANT_LAKE.surfaceY : SEA_LEVEL;
   }
 
   public getIslandAt(x: number, z: number): WorldIslandManifest | null {
@@ -916,12 +958,16 @@ export class TropicalWorld {
       material.uniforms.uStrength!.value = 0.72 + this.currentOceanConditions.foamStrength * 0.55;
       material.uniforms.uTideHeight!.value = this.currentOceanConditions.tideHeight;
     }
-    this.physics.setOceanConditions?.(this.currentOceanConditions);
+    const inland = this.getWaterSurfaceAt(playerPosition.x, playerPosition.z) > SEA_LEVEL;
+    this.physics.setOceanConditions?.(inland
+      ? { ...this.currentOceanConditions, currentX: 0, currentZ: 0 }
+      : this.currentOceanConditions);
     for (const material of this.inlandWaterMaterials) material.uniforms.uTime!.value = elapsedSeconds;
     this.skyObject?.position.set(playerPosition.x, playerPosition.y, playerPosition.z);
     this.updateLighting(timeOfDay, playerPosition);
     this.updateRaftVisual();
     this.animateVegetation(elapsedSeconds);
+    this.animateGiantIsland(elapsedSeconds, playerPosition);
     const treeEvents = this.updateFallingTrees(dtSeconds);
     const events: WorldEvent[] = [...treeEvents];
     this.updateFishSchools(elapsedSeconds, playerPosition);
@@ -1085,7 +1131,7 @@ export class TropicalWorld {
       this.removeEntity(entity);
       return {
         success: true,
-        message: "Truhe geöffnet: Du findest die Karte einer riesigen, noch unbekannten Insel.",
+        message: "Karte gefunden: Die Rieseninsel ist jetzt auf deiner Inselkarte verzeichnet – weit im Nordosten!",
         loot: [{ itemId: "giant_island_map", count: 1 }],
       };
     }
@@ -1174,7 +1220,7 @@ export class TropicalWorld {
       this.removeEntity(entity);
       return { success: true, message: "Dein verlorener Rucksack wurde geborgen.", loot: loot.map((entry) => ({ ...entry })) };
     }
-    if (entity.kind === "building" || entity.kind === "raft" || entity.kind === "lore_letter" || entity.kind === "climbing_anchor" || entity.kind === "signal_beacon" || entity.kind === "palm" || entity.kind === "tree" || entity.kind === "crab" || isWildlifeKind(entity.kind) || entity.kind === "shark") {
+    if (entity.kind === "elias" || entity.kind === "building" || entity.kind === "raft" || entity.kind === "lore_letter" || entity.kind === "climbing_anchor" || entity.kind === "signal_beacon" || entity.kind === "palm" || entity.kind === "tree" || entity.kind === "crab" || isWildlifeKind(entity.kind) || entity.kind === "shark") {
       return { success: false, message: "Das kannst du nicht aufheben.", loot: [] };
     }
     const count = entity.dynamicDrop
@@ -1674,7 +1720,7 @@ export class TropicalWorld {
     const radiusX = island.dimensions.widthMeters * 0.5;
     const radiusZ = island.dimensions.depthMeters * 0.5;
     const padding = 1.1;
-    const metersPerSegment = island.archetype === "palm-lagoon" || island.archetype === "mangrove-bay"
+    const metersPerSegment = island.id === "rieseninsel" ? 4 : island.archetype === "palm-lagoon" || island.archetype === "mangrove-bay"
       ? 1.65
       : island.biomes.includes("freshwater")
         ? 2
@@ -1735,14 +1781,14 @@ export class TropicalWorld {
   }
 
   private buildOceanAndSky(): void {
-    const seabed = createSandySeabed(2_900, 1_900, 420, 80);
+    const seabed = createSandySeabed(14_000, 12_000, 2_000, 1_500);
     this.scene.add(seabed);
 
-    const oceanGeometry = new PlaneGeometry(2_900, 1_900, 240, 156);
+    const oceanGeometry = new PlaneGeometry(14_000, 12_000, 400, 340);
     oceanGeometry.rotateX(-Math.PI / 2);
     const ocean = new Mesh(oceanGeometry, this.oceanMaterial);
     ocean.name = "Dynamischer Ozean";
-    ocean.position.set(420, SEA_LEVEL, 80);
+    ocean.position.set(2_000, SEA_LEVEL, 1_500);
     ocean.renderOrder = 4;
     this.scene.add(ocean);
 
@@ -1765,8 +1811,9 @@ export class TropicalWorld {
   }
 
   private populateWorld(): void {
-    const rng = new SeededRandom(WORLD_SEED);
+    const sharedRng = new SeededRandom(WORLD_SEED);
     for (const island of WORLD_MANIFEST.islands) {
+      const rng = island.id === "rieseninsel" ? new SeededRandom(307_571) : sharedRng;
       const entityPrefix = island.id === "kleine-sandbank" ? "start" : island.id === "dschungelbucht" ? "jungle" : island.id;
       const radiusX = island.dimensions.widthMeters * 0.5;
       const radiusZ = island.dimensions.depthMeters * 0.5;
@@ -1778,11 +1825,11 @@ export class TropicalWorld {
         .forEach((position, index) => this.spawnPalm(`${entityPrefix}-palm-${index}`, position, index % 3));
 
       if (island.hasJungle) {
-        const treeCount = Math.min(380, Math.max(72, Math.round((island.dimensions.widthMeters * island.dimensions.depthMeters) / 480)));
+        const treeCount = island.id === "rieseninsel" ? 8800 : Math.min(380, Math.max(72, Math.round((island.dimensions.widthMeters * island.dimensions.depthMeters) / 480)));
         const trees: Array<{ position: Vector3; height: number; rotation: number }> = [];
-        for (let index = 0; index < treeCount * 2 && trees.length < treeCount; index += 1) {
+        for (let index = 0; index < treeCount * 5 && trees.length < treeCount; index += 1) {
           const angle = rng.range(0, Math.PI * 2);
-          const radius = Math.sqrt(rng.next()) * 0.64;
+          const radius = Math.sqrt(rng.next()) * (island.id === "rieseninsel" ? 0.78 : 0.64);
           const x = centerX + Math.cos(angle) * radius * radiusX;
           const z = centerZ + Math.sin(angle) * radius * radiusZ;
           const y = this.heightAt(x, z);
@@ -1791,10 +1838,22 @@ export class TropicalWorld {
             && !isInKitLandmarkClearing(island, x - centerX, z - centerZ, 3)
             && !isInFreshwaterFeature(island, x, z, 3.5)
           ) {
-            trees.push({ position: new Vector3(x, y, z), height: rng.range(6, island.archetype === "mountain-jungle" ? 13 : 11), rotation: rng.range(0, Math.PI * 2) });
+            trees.push({ position: new Vector3(x, y, z), height: island.id === "rieseninsel" ? rng.range(18, 32) : rng.range(6, island.archetype === "mountain-jungle" ? 13 : 11), rotation: rng.range(0, Math.PI * 2) });
           }
         }
-        this.spawnJungleForest(
+        if (island.id === 'rieseninsel') {
+          // Local forest chunks keep near/far LOD useful across this enormous island.
+          const chunks = new Map<string, typeof trees>();
+          for (const tree of trees) {
+            const key = Math.floor((tree.position.x - centerX) / 120) + ':' + Math.floor((tree.position.z - centerZ) / 120);
+            const chunk = chunks.get(key) ?? []; chunk.push(tree); chunks.set(key, chunk);
+          }
+          for (const [key, chunk] of chunks) {
+            const [cx, cz] = key.split(':').map(Number);
+            this.spawnJungleForest(entityPrefix + '-tree-' + key, chunk,
+              new Vector3(centerX + (cx! + 0.5) * 120, 0, centerZ + (cz! + 0.5) * 120), 1500);
+          }
+        } else this.spawnJungleForest(
           `${entityPrefix}-tree`,
           trees,
           new Vector3(centerX, 0, centerZ),
@@ -1827,6 +1886,7 @@ export class TropicalWorld {
       }
     }
 
+    const rng = sharedRng;
     this.spawnIslandWaterFeatures(rng);
     this.spawnWreck();
     this.spawnIslandLandmarks(rng);
@@ -1865,6 +1925,9 @@ export class TropicalWorld {
           && !isInFreshwaterFeature(island, x, z, 2.8)
         ) break;
       }
+      if (island.id === 'rieseninsel' && (height < 0.25
+        || isInKitLandmarkClearing(island, x - island.positionMeters.x, z - island.positionMeters.z, 3)
+        || isInFreshwaterFeature(island, x, z, 3))) continue;
       positions.push(new Vector3(x, Math.max(0.25, height), z));
     }
     return positions;
@@ -1897,7 +1960,11 @@ export class TropicalWorld {
     const foliageMaterial = new MeshStandardMaterial({ color: 0x1c642f, roughness: 0.95, flatShading: true });
     const trunks = new InstancedMesh(new CylinderGeometry(0.28, 0.52, 1, 7), trunkMaterial, trees.length);
     const crowns = new InstancedMesh(new SphereGeometry(1, 7, 5), foliageMaterial, trees.length * 3);
-    const silhouettes = createKitInstancedMesh(this.assets, "nature.tree-default", trees.length);
+    const giantForest = idPrefix.startsWith('rieseninsel-');
+    const silhouettes = giantForest
+      ? new InstancedMesh(new SphereGeometry(1, 7, 5), foliageMaterial, trees.length)
+      : createKitInstancedMesh(this.assets, "nature.tree-default", trees.length);
+    if (giantForest && silhouettes) silhouettes.userData.giantCanopy = true;
     trunks.name = "Fällbare Dschungelbäume - Stämme";
     crowns.name = "Fällbare Dschungelbäume - Kronen";
     if (silhouettes) silhouettes.name = "Fällbare Dschungelbäume - Kenney-Fernansicht";
@@ -1925,6 +1992,11 @@ export class TropicalWorld {
         silhouettes,
       };
       this.updateInstancedTreeMatrices(instance, null);
+      if (giantForest) {
+        const tint = new Color().setHSL(0.27 + (index % 5) * 0.013, 0.38, 0.55 + (index % 4) * 0.08);
+        for (let crown = 0; crown < 3; crown++) crowns.setColorAt(index*3+crown,tint);
+        silhouettes?.setColorAt(index,tint);
+      }
       const marker = new Object3D();
       marker.position.copy(tree.position);
       marker.rotation.y = tree.rotation;
@@ -1975,7 +2047,7 @@ export class TropicalWorld {
       return;
     }
     const area = island.dimensions.widthMeters * island.dimensions.depthMeters;
-    const totalCount = Math.min(520, Math.max(area < 10_000 ? 28 : 80, Math.round(area / 320)));
+    const totalCount = island.id === "rieseninsel" ? 16000 : Math.min(520, Math.max(area < 10_000 ? 28 : 80, Math.round(area / 320)));
     const definitions = [
       { assetId: "nature.grass", minHeight: 0.38, maxHeight: 0.72, widthFactor: 0.9, castsShadow: false },
       { assetId: "nature.grass-leafs", minHeight: 0.45, maxHeight: 0.88, widthFactor: 0.98, castsShadow: false },
@@ -2043,7 +2115,7 @@ export class TropicalWorld {
 
       quaternion.setFromAxisAngle(yAxis, rng.range(0, Math.PI * 2));
       const variant = variants[placedCount % variants.length]!;
-      const height = rng.range(variant.minHeight, variant.maxHeight);
+      const height = rng.range(variant.minHeight, variant.maxHeight) * (island.id === "rieseninsel" ? 1.65 : 1);
       local.set(localX, ground, localZ);
       scale.set(
         height * variant.widthFactor * rng.range(0.86, 1.14),
@@ -2283,8 +2355,10 @@ export class TropicalWorld {
           const minimumFraction = kind === "turtle" ? 0.62 : kind === "crocodile" ? 0.28 : 0.2;
           const maximumFraction = kind === "turtle" ? 0.91 : kind === "crocodile" ? 0.76 : 0.72;
           const fraction = Math.sqrt(speciesRng.range(minimumFraction ** 2, maximumFraction ** 2));
-          const localX = Math.cos(angle) * fraction * radiusX;
-          const localZ = Math.sin(angle) * fraction * radiusZ;
+          const giantShore = island.id === 'rieseninsel' && (kind === 'crocodile' || kind === 'turtle');
+          const shoreAngle = 0.2 + (index / Math.max(1, count - 1)) * 1.3 + attempt * 0.08;
+          const localX = giantShore ? Math.cos(shoreAngle) * GIANT_LAKE.radiusX * speciesRng.range(1.06, 1.28) : Math.cos(angle) * fraction * radiusX;
+          const localZ = giantShore ? Math.sin(shoreAngle) * GIANT_LAKE.radiusZ * speciesRng.range(1.06, 1.28) : Math.sin(angle) * fraction * radiusZ;
           const x = island.positionMeters.x + localX;
           const z = island.positionMeters.z + localZ;
           const ground = this.heightAt(x, z);
@@ -2293,10 +2367,10 @@ export class TropicalWorld {
             localZ - island.safeLanding.offsetMeters.z,
           );
           if (
-            (kind === "turtle" ? ground < 0.08 || ground > 2.4 : kind === "crocodile" ? ground < -0.35 || ground > 3.2 : ground < 0.5)
+            (giantShore ? ground < 9.8 || ground > 16 : kind === "turtle" ? ground < 0.08 || ground > 2.4 : kind === "crocodile" ? ground < -0.35 || ground > 3.2 : ground < 0.5)
           || landingDistance < 19
           || isInKitLandmarkClearing(island, localX, localZ, 4)
-          || (kind !== "crocodile" && isInFreshwaterFeature(island, x, z, 3))
+          || (!giantShore && kind !== "crocodile" && isInFreshwaterFeature(island, x, z, 3))
           || accepted.some((other) => distanceSquaredXZ(other, { x, y: ground, z }) < minimumDistance ** 2)
           ) continue;
           position = new Vector3(x, ground + (kind === "bird" ? 3.8 : kind === "turtle" || kind === "crocodile" ? 0.1 : 0.03), z);
@@ -2463,7 +2537,7 @@ export class TropicalWorld {
       maxHitPoints: 1,
       cooldown: 0,
     });
-    this.streamedScenery.push({ object: group, center: group.position.clone(), distance: 480 });
+    this.streamedScenery.push({ object: group, center: group.position.clone(), distance: island.id === "rieseninsel" ? 1800 : 480 });
   }
 
   private spawnFreshwaterCourse(definition: WatercourseDefinition): void {
@@ -2767,6 +2841,7 @@ export class TropicalWorld {
     this.spawnRemainingIslandGameplay();
     this.spawnTreasureSandbarGameplay();
     this.spawnDistantSmallIslandLandmarks();
+    this.spawnGiantIslandLandmarks();
     this.spawnRockSpires(getIsland("mondklippen"), [
       { x: -47, z: -62, height: 15, radius: 5.5 },
       { x: -50, z: 64, height: 18, radius: 6.2 },
@@ -2781,6 +2856,7 @@ export class TropicalWorld {
 
   private spawnNatureKitDetails(rng: SeededRandom): void {
     const palettes: Readonly<Record<IslandId, readonly string[]>> = {
+      rieseninsel: ["nature.bush-large", "nature.plant-flat-tall", "nature.mushroom-red-group", "nature.flower-red", "nature.stump-old-tall"],
       "kleine-sandbank": [
         "nature.grass-large",
         "nature.flower-yellow",
@@ -2891,7 +2967,7 @@ export class TropicalWorld {
 
     for (const island of WORLD_MANIFEST.islands) {
       const palette = palettes[island.id];
-      const count = island.isStart ? 7 : island.archetype === "flower-meadow" ? 64 : island.isLarge ? 24 : 17;
+      const count = island.id === "rieseninsel" ? 140 : island.isStart ? 7 : island.archetype === "flower-meadow" ? 64 : island.isLarge ? 24 : 17;
       const placements: KitSceneryPlacement[] = [];
       const radiusX = island.dimensions.widthMeters * 0.5;
       const radiusZ = island.dimensions.depthMeters * 0.5;
@@ -2938,6 +3014,113 @@ export class TropicalWorld {
       });
     }
     this.spawnKitSceneryCluster("Biotop: Seerosenkanal", mangrove, lilies, 420, SEA_LEVEL + 0.035);
+  }
+
+  private spawnGiantIslandLandmarks(): void {
+    const island = getIsland('rieseninsel');
+    const rng = new SeededRandom(307_889);
+    const camp = new Group();
+    camp.name = 'Elias’ Lager';
+    camp.position.set(island.positionMeters.x + GIANT_CAMP.x, GIANT_CAMP.y, island.positionMeters.z + GIANT_CAMP.z);
+    const place = (name: string, model: Object3D, x: number, z: number, height: number, footprint: number, rotation = 0): void => {
+      normalizeHeight(model, height);
+      // Preserve model-origin correction inside an anchor and bound each reserved footprint.
+      let bounds = new Box3().setFromObject(model);
+      const size = bounds.getSize(new Vector3());
+      const fit = Math.min(1, footprint / Math.max(size.x, size.z));
+      model.scale.multiplyScalar(fit);
+      bounds = new Box3().setFromObject(model);
+      model.position.x -= (bounds.min.x + bounds.max.x) / 2;
+      model.position.z -= (bounds.min.z + bounds.max.z) / 2;
+      model.position.y -= bounds.min.y;
+      const anchor = new Group(); anchor.name = name; anchor.add(model);
+      anchor.position.set(x, 0, z); anchor.rotation.y = rotation;
+      camp.add(anchor);
+      if (height > 0.7) this.physics.addFixedCylinder({ x: camp.position.x+x, y: GIANT_CAMP.y+height/2, z: camp.position.z+z },height/2,footprint*0.42);
+    };
+    place('Elias’ Zelt', createCombinedAssetVisual(['survival.tent', 'survival.tent-canvas'], this.assets, 2.7) ?? createShelterVisual(), -9, -6, 2.7, 6, 0.25);
+    place('Vorratskiste', this.assets.createModel('survival.box-large') ?? createChestVisual(), -13, 2, 1.05, 1.8, -0.15);
+    place('Wasserfass', this.assets.createModel('survival.barrel') ?? createChestVisual(), -9, 4, 1.15, 1.4);
+    place('Arbeitstisch', this.assets.createModel('survival.workbench-anvil') ?? createWorkbenchVisual(), 9, -6, 1.15, 3, -0.6);
+    place('Brennholz', this.assets.createModel('survival.resource-wood') ?? createBedVisual(), 12, 0, 0.6, 2.4, 1.2);
+    place('Wassereimer', this.assets.createModel('survival.bucket') ?? createChestVisual(), 9, 6, 0.55, 0.8);
+    place('Sitzbank', createBedVisual(), -4, 6, 0.55, 2.5, Math.PI/2);
+    const fire = createCampfireVisual();
+    this.eliasFlame = fire.getObjectByName('campfire-flame') ?? null;
+    place('Elias’ Lagerfeuer', fire, 0, 0, 1, 1.8);
+    const light = new PointLight(0xffb967, 5, 23, 2); light.position.set(0, 1.6, 0); camp.add(light);
+    this.scene.add(camp);
+    this.streamedScenery.push({ object: camp, center: camp.position.clone(), distance: 450 });
+
+    const npc = createEliasVisual();
+    npc.name = 'Elias Voss';
+    npc.position.set(camp.position.x+3.8, GIANT_CAMP.y, camp.position.z+3.8);
+    npc.rotation.y = -2.3; npc.userData.entityId = 'elias';
+    this.scene.add(npc); this.interactiveObjects.push(npc);
+    const collider = this.physics.addFixedCylinder({ x: npc.position.x, y: npc.position.y+0.9, z: npc.position.z },0.9,0.36);
+    this.entities.set('elias', { id: 'elias', kind: 'elias', object: npc, available: true, amount: 1, hitPoints: 1, maxHitPoints: 1, cooldown: 0, collider });
+
+    this.spawnRockSpires(island, [
+      { x: -225, z: 280, height: 36, radius: 10 },
+      { x: 150, z: 300, height: 42, radius: 12 },
+      { x: 405, z: 75, height: 32, radius: 9 },
+    ]);
+    const basinDefinition = FRESHWATER_BASINS[0]!;
+    const seed = freshwaterBasinShoreSeed(basinDefinition, island);
+    const shore: KitSceneryPlacement[] = [];
+    for (let i=0; i<68; i++) {
+      const angle = i/68*Math.PI*2;
+      const radius = organicBasinRadiusFactor(angle,seed)*1.055;
+      const x = Math.cos(angle)*GIANT_LAKE.radiusX*radius;
+      const z = Math.sin(angle)*GIANT_LAKE.radiusZ*radius;
+      if (isInKitLandmarkClearing(island,x,z,8)) continue;
+      shore.push({assetId: i%4===0 ? 'nature.rock-large-c' : i%3===0 ? 'nature.flower-red' : 'nature.plant-flat-tall',
+        x,z,height: i%4===0 ? rng.range(1.1,2.8) : rng.range(0.8,1.7),rotationY: angle});
+    }
+    this.spawnKitSceneryCluster('Smaragdsee · Ufergarten',island,shore,1400);
+    const lilies: KitSceneryPlacement[]=[];
+    for(let i=0;i<42;i++) {
+      const angle=rng.range(0,Math.PI*2), radius=organicBasinRadiusFactor(angle,seed)*rng.range(0.77,0.86);
+      lilies.push({assetId:'nature.lily-large',x:Math.cos(angle)*180*radius,z:Math.sin(angle)*135*radius,height:0.24,rotationY:angle});
+    }
+    this.spawnKitSceneryCluster('Smaragdsee · Seerosen',island,lilies,1400,GIANT_LAKE.surfaceY+0.04);
+    // A pair of emergent trees frames the last turn before the camp.
+    this.spawnJungleForest('rieseninsel-baumtor',[
+      {position:new Vector3(4316,this.heightAt(4316,3643),3643),height:37,rotation:0.3},
+      {position:new Vector3(4306,this.heightAt(4306,3667),3667),height:34,rotation:1.2},
+    ],new Vector3(4311,0,3655),1400);
+    for(let i=0;i<32;i++) {
+      const butterfly = createButterflyVisual(i%3);
+      const x=camp.position.x+rng.range(-20,20), z=camp.position.z+rng.range(-18,18);
+      butterfly.position.set(x,GIANT_CAMP.y+rng.range(1.1,2.7),z);
+      butterfly.name='Dschungel-Schmetterling'; butterfly.userData.home=butterfly.position.clone();
+      butterfly.userData.phase=rng.range(0,Math.PI*2); this.scene.add(butterfly); this.butterflies.push(butterfly);
+    }
+    // A separate coastal shark preserves the existing channel shark and save semantics.
+    const shark=createSharkVisual();
+    const x=island.positionMeters.x-810,z=island.positionMeters.z-160;
+    shark.position.set(x,-1.2,z); shark.userData.entityId='rieseninsel-coast-shark'; this.scene.add(shark); this.interactiveObjects.push(shark);
+    this.entities.set('rieseninsel-coast-shark',{id:'rieseninsel-coast-shark',kind:'shark',object:shark,available:true,amount:1,hitPoints:160,maxHitPoints:160,cooldown:0,home:shark.position.clone()});
+  }
+
+  private animateGiantIsland(time: number, player: Vec3Like): void {
+    const elias=this.entities.get('elias');
+    if(elias && distanceSquaredXZ(elias.object.position,player)<18**2) {
+      elias.object.rotation.y=Math.atan2(player.x-elias.object.position.x,player.z-elias.object.position.z);
+      const torso=elias.object.getObjectByName('elias-torso');
+      if(torso) torso.rotation.z=Math.sin(time*1.4)*0.015;
+    }
+    for(const butterfly of this.butterflies) {
+      butterfly.visible=distanceSquaredXZ(butterfly.position,player)<95**2;
+      if(!butterfly.visible) continue;
+      const home=butterfly.userData.home as Vector3, phase=butterfly.userData.phase as number;
+      butterfly.position.set(home.x+Math.sin(time*0.7+phase)*2,home.y+Math.sin(time*1.3+phase)*0.5,home.z+Math.cos(time*0.5+phase)*1.7);
+      butterfly.rotation.y=time*0.5+phase;
+      butterfly.children[0]!.rotation.z=Math.sin(time*12+phase)*0.85;
+      butterfly.children[1]!.rotation.z=-Math.sin(time*12+phase)*0.85;
+    }
+    const flame=this.eliasFlame;
+    if(flame) flame.scale.set(1+Math.sin(time*9)*0.08,1+Math.sin(time*13)*0.15,1);
   }
 
   private spawnAbandonedKitSites(): void {
@@ -4008,10 +4191,12 @@ export class TropicalWorld {
         const nextX = animal.object.position.x + direction.x * dt * speed;
         const nextZ = animal.object.position.z + direction.z * dt * speed;
         const nextGround = this.heightAt(nextX, nextZ);
-        const habitatValid = animal.kind === "bird"
-          || animal.kind === "turtle" && nextGround > 0.04 && nextGround < 3
-          || animal.kind === "crocodile" && nextGround > -0.45 && nextGround < 3.6
-          || nextGround > 0.4;
+        const giantHabitat = animal.id.startsWith('rieseninsel-');
+        const blockedCamp = giantHabitat && isInKitLandmarkClearing(getIsland('rieseninsel'), nextX - 4600, nextZ - 3800, 6);
+        const habitatValid = !blockedCamp && (animal.kind === "bird"
+          || animal.kind === "turtle" && nextGround > (giantHabitat ? 9.7 : 0.04) && nextGround < (giantHabitat ? 17 : 3)
+          || animal.kind === "crocodile" && nextGround > (giantHabitat ? 9.5 : -0.45) && nextGround < (giantHabitat ? 17 : 3.6)
+          || nextGround > 0.4) && !(giantHabitat && nextGround < 9.5 && Math.hypot((nextX - 4600) / 180, (nextZ - 3800) / 135) < 1.2);
         if (habitatValid && (state === "alerted" || state === "drinking" || distanceSquaredXZ({ x: nextX, y: nextGround, z: nextZ }, home) < (orbitRadius + 8) ** 2)) {
           animal.object.position.x = nextX;
           animal.object.position.z = nextZ;
@@ -4194,15 +4379,15 @@ export class TropicalWorld {
   }
 
   private updateShark(dt: number, player: Vec3Like, swimming: boolean, onRaft: boolean, events: WorldEvent[]): void {
-    const shark = this.shark;
-    if (!shark?.available) return;
+    for (const shark of this.entities.values()) {
+    if (shark.kind !== 'shark' || !shark.available || distanceSquaredXZ(shark.object.position,player)>400**2) continue;
     shark.cooldown = Math.max(0, shark.cooldown - dt);
     const sharkPosition = shark.object.position;
     const distance = Math.sqrt(distanceSquaredXZ(sharkPosition, player));
-    const canHunt = (swimming || onRaft) && this.isDeepWater(player.x, player.z) && distance < 35;
+    const canHunt = this.getWaterSurfaceAt(player.x,player.z) === SEA_LEVEL && (swimming || onRaft) && this.isDeepWater(player.x, player.z) && distance < 35;
     let target: Vector3;
     if (canHunt && shark.cooldown <= 0) target = new Vector3(player.x, -1.1, player.z);
-    else target = new Vector3(170 + Math.sin(this.elapsedSeconds * 0.12) * 70, -1.25, 18 + Math.cos(this.elapsedSeconds * 0.17) * 48);
+    else target = new Vector3((shark.id === "channel-shark" ? 170 : shark.home!.x) + Math.sin(this.elapsedSeconds * 0.12) * 70, -1.25, (shark.id === "channel-shark" ? 18 : shark.home!.z) + Math.cos(this.elapsedSeconds * 0.17) * 48);
     const direction = target.sub(sharkPosition);
     direction.y *= 0.25;
     if (direction.lengthSq() > 0.01) {
@@ -4218,6 +4403,8 @@ export class TropicalWorld {
       shark.cooldown = 18;
       events.push({ type: "raft-damage", amount: 8, text: "Der Hai rammt dein Floß!" });
     }
+  }
+
   }
 
   private updateLighting(timeOfDay: number, player: Vec3Like): void {
@@ -4426,9 +4613,10 @@ export class TropicalWorld {
       return;
     }
 
-    setPart(tree.trunks, tree.index, 0, tree.height * 0.325, 0, 1, tree.height * 0.65, 1);
+    const giant = tree.silhouettes?.userData.giantCanopy === true;
+    setPart(tree.trunks, tree.index, 0, tree.height * 0.325, 0, giant ? 2.6 : 1, tree.height * 0.65, giant ? 2.6 : 1);
     for (let crownIndex = 0; crownIndex < 3; crownIndex += 1) {
-      const crownScale = tree.height * (0.2 + crownIndex * 0.015);
+      const crownScale = tree.height * ((giant ? 0.25 : 0.2) + crownIndex * 0.015);
       setPart(
         tree.crowns,
         tree.index * 3 + crownIndex,
@@ -4445,11 +4633,11 @@ export class TropicalWorld {
         tree.silhouettes,
         tree.index,
         0,
+        giant ? tree.height * 0.75 : 0,
         0,
-        0,
-        tree.height * 0.78,
-        tree.height,
-        tree.height * 0.78,
+        tree.height * (giant ? 0.3 : 0.78),
+        tree.height * (giant ? 0.25 : 1),
+        tree.height * (giant ? 0.3 : 0.78),
       );
     }
   }
@@ -4809,7 +4997,7 @@ export class TropicalWorld {
 
   private spawnDailyWashups(day: number): void {
     const random = new SeededRandom(WORLD_SEED ^ Math.imul(day, 0x9e3779b1));
-    const definition = WORLD_MANIFEST.islands[(day - 1) % WORLD_MANIFEST.islands.length] ?? WORLD_MANIFEST.islands[0];
+    const definition = WORLD_MANIFEST.islands[(day - 1) % WORLD_MANIFEST.islands.length] ?? WORLD_MANIFEST.islands[0]!;
     const island = {
       id: definition.id,
       centerX: definition.positionMeters.x,
@@ -5024,6 +5212,7 @@ function createCombinedAssetVisual(ids: readonly string[], assets: AssetService,
 function islandHeightAt(x: number, z: number, island: WorldIslandManifest): number {
   const rawHeight = rawIslandHeightAt(x, z, island);
   if (rawHeight <= -7.9) return rawHeight;
+  if (island.id === 'rieseninsel' && Math.hypot(x-island.positionMeters.x-GIANT_CAMP.x,z-island.positionMeters.z-GIANT_CAMP.z)<30) return GIANT_CAMP.y;
   return carveFreshwaterTerrain(x, z, island, rawHeight);
 }
 
@@ -5032,6 +5221,7 @@ function rawIslandHeightAt(x: number, z: number, island: WorldIslandManifest): n
   const dz = z - island.positionMeters.z;
   const radiusX = island.dimensions.widthMeters * 0.5;
   const radiusZ = island.dimensions.depthMeters * 0.5;
+  if (Math.abs(dx) > radiusX * 1.2 || Math.abs(dz) > radiusZ * 1.2) return -8;
   const seed = ISLAND_TERRAIN_SEEDS[island.id];
   const warp = fbm2D(x * 0.025, z * 0.025, seed, 3) * (
     island.archetype === "rock-reef" || island.archetype === "volcanic" ? 0.15 : 0.09
@@ -5055,6 +5245,11 @@ function rawIslandHeightAt(x: number, z: number, island: WorldIslandManifest): n
       const landingNoise = fbm2D(x * 0.09, z * 0.09, seed + 501, 2) * 0.08;
       return 0.78 + landingNoise;
     }
+  }
+  if (island.id === 'rieseninsel') {
+    const landingDistance = Math.hypot(dx-island.safeLanding.offsetMeters.x,dz-island.safeLanding.offsetMeters.z);
+    if (landingDistance < 26) return 1.1;
+    if (landingDistance < 42 && normalized >= 0.79) return 1.1 * (1-smoothstep(26,42,landingDistance)) + (-0.6+(0.92-normalized)/0.13*1.25)*smoothstep(26,42,landingDistance);
   }
   if (normalized >= 0.92) return -8 + (1.08 - normalized) / 0.16 * 7.4;
   if (normalized >= 0.79) return -0.6 + (0.92 - normalized) / 0.13 * 1.25;
@@ -5144,6 +5339,19 @@ function rawIslandHeightAt(x: number, z: number, island: WorldIslandManifest): n
     );
     const terrainBlend = smoothstep(0.82, 1.28, platformDistance);
     height = VOLCANO_LANDMARK.plateauHeight * (1 - terrainBlend) + height * terrainBlend;
+  }
+  if (island.id === 'rieseninsel') {
+    // A continuous, dry lake rim; a broad, truly level camp with feathered edges.
+    const lakeDistance = Math.hypot(dx / GIANT_LAKE.radiusX, dz / GIANT_LAKE.radiusZ);
+    height += (12.5-height)*(1-smoothstep(1.35,1.9,lakeDistance));
+    for (let i = 0; i < GIANT_TRAIL.length - 1; i++) {
+      const a = GIANT_TRAIL[i]!, b = GIANT_TRAIL[i + 1]!;
+      const t = clamp(((dx-a.x)*(b.x-a.x)+(dz-a.z)*(b.z-a.z))/((b.x-a.x)**2+(b.z-a.z)**2),0,1);
+      const distance = Math.hypot(dx-a.x-(b.x-a.x)*t,dz-a.z-(b.z-a.z)*t);
+      const blend = 1-smoothstep(5,16,distance);
+      height += (a.y+(b.y-a.y)*t-height)*blend;
+    }
+    height += (GIANT_CAMP.y-height)*(1-smoothstep(30,48,Math.hypot(dx-GIANT_CAMP.x,dz-GIANT_CAMP.z)));
   }
   if (island.archetype === "mangrove-bay") height = Math.min(height, 6.8);
   height = Math.max(island.archetype === "mangrove-bay" || island.archetype === "palm-lagoon" ? 0.12 : 0.35, height);
@@ -5499,6 +5707,10 @@ function isInKitLandmarkClearing(
   padding = 0,
 ): boolean {
   const layoutScale = islandLayoutScale(island);
+  if (island.id === 'rieseninsel' && GIANT_TRAIL.some((point, index) => {
+    const next = GIANT_TRAIL[index + 1];
+    return next && distanceToSegment2D(localX, localZ, point.x, point.z, next.x, next.z) < 6 + padding;
+  })) return true;
   return (KIT_LANDMARK_CLEARINGS[island.id] ?? []).some((clearing) => (
     Math.hypot(
       localX - clearing.x * layoutScale.x,
@@ -5517,6 +5729,9 @@ function islandLayoutScale(island: WorldIslandManifest): { x: number; z: number 
 
 function terrainColor(target: Color, x: number, z: number, height: number, island: WorldIslandManifest): void {
   const noise = fbm2D(x * 0.04, z * 0.04, 99, 3) * 0.5 + 0.5;
+  if (island.id === 'rieseninsel' && isInKitLandmarkClearing(island, x-island.positionMeters.x, z-island.positionMeters.z)) {
+    target.setRGB(0.38+noise*0.08,0.29+noise*0.07,0.14+noise*0.03); return;
+  }
   if (freshwaterTerrainColor(target, x, z, island, noise)) return;
   if (island.archetype === "volcanic" && height < -1.2) target.setRGB(0.18 + noise * 0.06, 0.17 + noise * 0.05, 0.16 + noise * 0.045);
   else if (island.archetype === "volcanic" && height < 0.82) target.setRGB(0.22 + noise * 0.06, 0.2 + noise * 0.05, 0.18 + noise * 0.04);
@@ -5530,6 +5745,7 @@ function terrainColor(target: Color, x: number, z: number, height: number, islan
   else if (island.archetype === "crescent-cliffs" && height > 8) target.setRGB(0.6 + noise * 0.12, 0.61 + noise * 0.1, 0.56 + noise * 0.09);
   else if (island.archetype === "crescent-cliffs") target.setRGB(0.38 + noise * 0.1, 0.5 + noise * 0.11, 0.24 + noise * 0.06);
   else if (island.archetype === "mountain-jungle" && height > 23) target.setRGB(0.28 + noise * 0.1, 0.31 + noise * 0.09, 0.28 + noise * 0.08);
+  else if (island.id === "rieseninsel") target.setRGB(0.035 + noise * 0.028, 0.105 + noise * 0.055, 0.043 + noise * 0.025);
   else if (height > 12) target.setRGB(0.18 + noise * 0.08, 0.29 + noise * 0.09, 0.17 + noise * 0.04);
   else if (island.hasJungle) target.setRGB(0.12 + noise * 0.09, 0.32 + noise * 0.16, 0.13 + noise * 0.07);
   else target.setRGB(0.29 + noise * 0.11, 0.47 + noise * 0.12, 0.16 + noise * 0.05);
@@ -6409,6 +6625,49 @@ function createWildlifeVisual(kind: WildlifeKind, assets: AssetService): Group {
   return group;
 }
 
+function createEliasVisual(): Group {
+  const root=new Group();
+  const skin=new MeshStandardMaterial({color:0xc18d67,roughness:1});
+  const shirt=new MeshStandardMaterial({color:0x62785a,roughness:1});
+  const trousers=new MeshStandardMaterial({color:0x514d36,roughness:1});
+  const leather=new MeshStandardMaterial({color:0x483022,roughness:1});
+  const hat=new MeshStandardMaterial({color:0xc0a171,roughness:1});
+  const box=(w:number,h:number,d:number,x:number,y:number,z:number,material:MeshStandardMaterial,parent:Group=root):Mesh=>{
+    const mesh=new Mesh(new BoxGeometry(w,h,d),material); mesh.position.set(x,y,z); mesh.castShadow=true; parent.add(mesh); return mesh;
+  };
+  for(const side of [-1,1]) {
+    box(0.18,0.69,0.21,side*0.14,0.48,0,trousers);
+    box(0.21,0.15,0.34,side*0.14,0.075,0.06,leather);
+  }
+  const torso=new Group();torso.name='elias-torso';root.add(torso);
+  box(0.49,0.58,0.28,0,1.12,0,shirt,torso);
+  box(0.5,0.07,0.3,0,0.84,0,leather,torso);
+  box(0.15,0.1,0.15,0,1.46,0,skin,torso);
+  const head=new Mesh(new SphereGeometry(0.2,10,8),skin);head.position.set(0,1.66,0);head.scale.set(0.83,1.1,0.84);torso.add(head);
+  for(const side of [-1,1]) {
+    const sleeve=box(0.18,0.32,0.23,side*0.33,1.22,0,shirt,torso);sleeve.rotation.z=side*0.1;
+    box(0.13,0.32,0.16,side*0.36,0.94,0.015,skin,torso);
+    box(0.035,0.025,0.035,side*0.066,1.69,0.151,leather,torso);
+  }
+  box(0.065,0.085,0.08,0,1.62,0.177,skin,torso);
+  box(0.12,0.035,0.025,0,1.56,0.15,leather,torso);
+  box(0.33,0.43,0.2,0,1.15,-0.23,leather,torso);
+  for(const side of [-1,1]) box(0.045,0.53,0.035,side*0.17,1.13,0.155,hat,torso);
+  const brim=new Mesh(new CylinderGeometry(0.33,0.33,0.04,12),hat);brim.position.y=1.83;torso.add(brim);
+  const crown=new Mesh(new CylinderGeometry(0.19,0.21,0.17,10),hat);crown.position.y=1.925;torso.add(crown);
+  return root;
+}
+
+function createButterflyVisual(variant: number): Group {
+  const root=new Group();
+  const material=new MeshStandardMaterial({color:[0x20bce0,0xe99d38,0x83b5ff][variant]!,side:DoubleSide,roughness:0.85});
+  for(const side of [-1,1]) {
+    const wing=new Group();const mesh=new Mesh(new SphereGeometry(0.13,6,4),material);
+    mesh.scale.set(1,0.04,0.72);mesh.position.x=side*0.12;wing.add(mesh);root.add(wing);
+  }
+  return root;
+}
+
 function createProceduralSnake(): Group {
   const snake = new Group();
   snake.name = "3D-Modell: Giftschlange";
@@ -7071,6 +7330,7 @@ function labelForKind(kind: WorldEntityKind): string {
     shovel_blueprint: "Schaufel-Bauplan",
     shovel: "Improvisierte Schaufel",
     giant_island_map: "Karte der Rieseninsel",
+    elias: "Elias Voss",
     portable_workbench: "Verpackte Werkbank",
     palm: "Palme",
     tree: "Baum",

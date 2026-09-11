@@ -26,7 +26,7 @@ import {
   type RecipeDefinition,
   type RecipeId,
 } from "../data/recipes";
-import { getIsland, WORLD_MANIFEST, type IslandId } from "../data/worldManifest";
+import { getChartedIslands, getIsland, WORLD_MANIFEST, type IslandId } from "../data/worldManifest";
 import {
   Inventory,
   ExpeditionNotebook,
@@ -568,8 +568,9 @@ export class GameApp {
 
     const playerPosition = physics.getPlayerPosition();
     const deepWater = world.isDeepWater(playerPosition.x, playerPosition.z);
-    const swimming = deepWater && playerPosition.y < 1.1 && !this.onRaft;
-    this.underwater = swimming && playerPosition.y < -0.72;
+    const waterSurface = world.getWaterSurfaceAt(playerPosition.x, playerPosition.z);
+    const swimming = deepWater && playerPosition.y < waterSurface + 1.1 && !this.onRaft;
+    this.underwater = swimming && playerPosition.y < waterSurface - 0.72;
     const movement = this.createMovement(input, swimming);
     this.toolViewMoving = movement.activity !== "idle";
 
@@ -754,7 +755,9 @@ export class GameApp {
     const speed = (swimming ? (sprinting ? 3.5 : 2.35) : sprinting ? 6.4 : 4.1) * fatigueSpeedMultiplier;
     let vertical = 0;
     if (swimming) {
-      const buoyancy = clamp((0.55 - (this.physics?.getPlayerPosition().y ?? 0.55)) * 2.2, -1.2, 1.2);
+      const position = this.physics!.getPlayerPosition();
+      const surface = this.world?.getWaterSurfaceAt(position.x, position.z) ?? 0;
+      const buoyancy = clamp((surface + 0.55 - position.y) * 2.2, -1.2, 1.2);
       const swimMotion = calculateSwimmingMotion({
         yaw: this.yaw,
         pitch: this.pitch,
@@ -815,6 +818,18 @@ export class GameApp {
 
     if (target.kind === "building") {
       this.interactBuilding(target.id);
+      return;
+    }
+    if (target.kind === 'elias') {
+      this.state = 'paused'; this.exitPointerLock();
+      this.ui.showLetter({ conversation: true, sequence: 0, total: 0,
+        title: 'Elias Voss', dateLabel: 'Endlich Gesellschaft', locationLabel: 'Lager am Smaragdsee · Rieseninsel',
+        paragraphs: [
+          'Du hast es geschafft! Ich bin Elias. Wenn du meine Briefe gefunden hast, kennst du schon einen Teil meiner Reise. Die alte Karte hat auch mich hierhergeführt.',
+          'Hier am Südwestufer ist der Boden trocken und eben. Der Wald hält den Wind ab, und das klare Wasser liegt gleich vor uns. Setz dich ans Feuer und ruh dich von der Überfahrt aus.',
+          'Der Pfad hinter meinem Zelt führt zurück zur geschützten Bucht. Auf dieser Insel findest du Wildschweine, Hühner, Schildkröten, Vögel und Schlangen. Am nordöstlichen Seeufer leben Krokodile – dort solltest du Abstand halten. Vor der Küste ziehen Haie ihre Kreise.',
+          'Hinter dem See steigen die bewaldeten Grate auf. Pack genug Wasser und Verbände ein, bevor du losziehst. Zwischen den Baumriesen verliert man schnell die Orientierung.'
+        ], signature: 'Elias' });
       return;
     }
     if (target.kind === "lore_letter") {
@@ -1368,7 +1383,7 @@ export class GameApp {
       }
     } else if (stack.itemId === "giant_island_map") {
       this.ui.addToast({
-        text: "Die alte Karte zeigt eine riesige Insel weit außerhalb des bekannten Archipels. Auf deiner HUD-Karte ist sie noch nicht verzeichnet.",
+        text: "Die Karte zeigt die Rieseninsel weit im Nordosten. Ihr Smaragdsee liegt im Zentrum; von der Südwestbucht führt ein Pfad zu Elias’ Lager. M öffnet deine Inselkarte.",
         tone: "info",
         durationMs: 8_000,
       });
@@ -1874,7 +1889,7 @@ export class GameApp {
         playerZ: position.z,
         headingDegrees: heading,
         locationLabel: currentIsland?.name ?? "Offener Ozean",
-        islands: WORLD_MANIFEST.islands.map((island) => ({
+        islands: getChartedIslands(this.world?.isGiantIslandCharted() ?? false).map((island) => ({
           id: island.id,
           label: island.name,
           x: island.positionMeters.x,
@@ -1919,6 +1934,7 @@ export class GameApp {
                 : "Benutzen";
       return { key: "E", action, target: building ? BUILDABLE_CATALOG[building.type].label : label };
     }
+    if (kind === "elias") return { key: "E", action: "Sprechen", target: "Elias Voss" };
     if (kind === "lore_letter") return { key: "E", action: "Lesen", target: label };
     if (kind === "climbing_anchor") return { key: "E", action: "Seilaufstieg benutzen", target: label };
     if (kind === "signal_beacon") return { key: "E", action: "Windsignal entzünden", target: label };
@@ -1976,7 +1992,7 @@ export class GameApp {
                       : stack.itemId === "shovel_blueprint"
                         ? "Schaltet das Rezept für die Improvisierte Schaufel frei."
                         : stack.itemId === "giant_island_map"
-                          ? "Zeigt eine riesige Insel außerhalb der bekannten HUD-Karte."
+                          ? "Karte zur fernen Rieseninsel im Nordosten mit Smaragdsee und Elias’ Lager."
                       : ITEM_CATALOG[stack.itemId].category === "tool"
                         ? stack.itemId === "shovel"
                           ? "Zum Freilegen vergrabener Truhen im Sand."

@@ -14,7 +14,8 @@ export type IslandId =
   | 'schatzsandbank'
   | 'westwind-eiland'
   | 'nordstern-sandbank'
-  | 'sonnenrand-insel';
+  | 'sonnenrand-insel'
+  | 'rieseninsel';
 
 export type IslandArchetype =
   | 'sandbank'
@@ -30,7 +31,8 @@ export type IslandArchetype =
   | 'treasure-sandbar'
   | 'wind-rock-islet'
   | 'coral-sandbar'
-  | 'remote-palm-isle';
+  | 'remote-palm-isle'
+  | 'giant-jungle';
 
 export type ReleasePhase = 1 | 2;
 
@@ -101,6 +103,7 @@ export interface WorldIslandManifest {
   readonly isLarge: boolean;
   readonly hasJungle: boolean;
   readonly releasePhase: ReleasePhase;
+  readonly requiresTreasureMap?: boolean;
   readonly resources: readonly ResourceSourceDefinition[];
 }
 
@@ -108,22 +111,7 @@ export type IslandDefinition = WorldIslandManifest;
 
 export interface WorldManifest {
   readonly id: 'tropical-archipelago';
-  readonly islands: readonly [
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-    WorldIslandManifest,
-  ];
+  readonly islands: readonly WorldIslandManifest[];
 }
 
 const START_ISLAND_RESOURCES = [
@@ -302,7 +290,7 @@ export const WORLD_MANIFEST: WorldManifest = {
       id: 'dschungelberg',
       name: 'Dschungelberg',
       archetype: 'mountain-jungle',
-      description: 'Die größte und höchste Insel: ein bewaldeter Berg mit felsigem Gipfel und weiten Ausblicken.',
+      description: 'Ein hoher Inselberg im bekannten Archipel: ein bewaldeter Berg mit felsigem Gipfel und weiten Ausblicken.',
       visualIdentity: 'Dunkler Bergdschungel, terrassierte Hänge, grauer Gipfelgrat und Wolkennebel in großer Höhe.',
       landmarks: ['Gipfelgrat', 'Dschungelterrassen', 'Bergquelle', 'Nordklippen', 'Berg-Außenposten', 'Seilroute'],
       safeLanding: { label: 'Nordwestbucht', offsetMeters: { x: -206, z: 38 } },
@@ -509,8 +497,40 @@ export const WORLD_MANIFEST: WorldManifest = {
         { sourceId: 'crab', count: 10, yield: [{ itemId: 'crab', quantity: 1 }] },
       ],
     },
+    {
+      id: 'rieseninsel',
+      name: 'Rieseninsel',
+      archetype: 'giant-jungle',
+      description: 'Ein fernes Dschungelreich mit uralten Baumriesen, bewaldeten Bergrücken und einem großen Süßwassersee im Herzen.',
+      visualIdentity: 'Smaragdgrüner See, mehrstöckiges Blätterdach, hohe Felszinnen und eine bewohnte Lichtung am südwestlichen Seeufer.',
+      landmarks: ['Smaragdsee', 'Elias’ Lager', 'Tor der Baumriesen', 'Nördlicher Kronengrat', 'Expeditionspfad'],
+      safeLanding: { label: 'Geschützte Südwestbucht', offsetMeters: { x: -560, z: -260 } },
+      positionMeters: { x: 4_600, z: 3_800 },
+      dimensions: { widthMeters: 1_600, depthMeters: 1_200 },
+      climate: 'tropical',
+      biomes: ['sand', 'shallows', 'jungle', 'rock', 'freshwater', 'mountain'],
+      terrainProfile: { maximumHeightMeters: 108, roughness: 'high', shoreline: 'mixed' },
+      isStart: false,
+      isLarge: true,
+      hasJungle: true,
+      releasePhase: 1,
+      requiresTreasureMap: true,
+      resources: [
+        { sourceId: 'loose_stick', count: 180, yield: [{ itemId: 'stick', quantity: 1 }] },
+        { sourceId: 'loose_stone', count: 100, yield: [{ itemId: 'stone', quantity: 1 }] },
+        { sourceId: 'fiber_plant', count: 200, yield: [{ itemId: 'fiber', quantity: 4 }] },
+        { sourceId: 'palm_tree', count: 160, yield: [{ itemId: 'palm_log', quantity: 1 }, { itemId: 'palm_frond', quantity: 4 }] },
+        { sourceId: 'coconut', count: 80, yield: [{ itemId: 'coconut', quantity: 1 }] },
+        { sourceId: 'mango_tree', count: 80, yield: [{ itemId: 'mango', quantity: 1 }] },
+        { sourceId: 'crab', count: 36, yield: [{ itemId: 'crab', quantity: 1 }] },
+      ],
+    },
   ],
 };
+
+export function getChartedIslands(treasureMapFound: boolean): readonly WorldIslandManifest[] {
+  return WORLD_MANIFEST.islands.filter((island) => !island.requiresTreasureMap || treasureMapFound);
+}
 
 export const ISLAND_IDS = Object.freeze(WORLD_MANIFEST.islands.map(({ id }) => id));
 

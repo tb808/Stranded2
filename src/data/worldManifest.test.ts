@@ -7,7 +7,7 @@ import { WORLD_MANIFEST, getIsland, getStartIsland } from './worldManifest';
 import { Inventory } from '../gameplay/model/inventory';
 
 describe('WORLD_MANIFEST', () => {
-  it('contains the fourteen planned, distinct tropical islands in release order', () => {
+  it('contains the fifteen planned, distinct tropical islands in release order', () => {
     expect(WORLD_MANIFEST.islands.map(({ id }) => id)).toEqual([
       'kleine-sandbank',
       'dschungelbucht',
@@ -23,9 +23,10 @@ describe('WORLD_MANIFEST', () => {
       'westwind-eiland',
       'nordstern-sandbank',
       'sonnenrand-insel',
+      'rieseninsel',
     ]);
-    expect(new Set(WORLD_MANIFEST.islands.map(({ id }) => id))).toHaveLength(14);
-    expect(new Set(WORLD_MANIFEST.islands.map(({ archetype }) => archetype))).toHaveLength(14);
+    expect(new Set(WORLD_MANIFEST.islands.map(({ id }) => id))).toHaveLength(15);
+    expect(new Set(WORLD_MANIFEST.islands.map(({ archetype }) => archetype))).toHaveLength(15);
     expect(WORLD_MANIFEST.islands.every(({ climate }) => climate === 'tropical')).toBe(true);
     expect(WORLD_MANIFEST.islands.every(({ releasePhase }) => releasePhase === 1)).toBe(true);
   });
@@ -50,9 +51,9 @@ describe('WORLD_MANIFEST', () => {
     }
   });
 
-  it('reserves fourteen unique fixed positions and keeps the first destination 390 meters from the start', () => {
+  it('reserves fifteen unique fixed positions and keeps the first destination 390 meters from the start', () => {
     const positions = WORLD_MANIFEST.islands.map(({ positionMeters }) => `${positionMeters.x}:${positionMeters.z}`);
-    expect(new Set(positions)).toHaveLength(14);
+    expect(new Set(positions)).toHaveLength(15);
     const start = getIsland('kleine-sandbank').positionMeters;
     const jungle = getIsland('dschungelbucht').positionMeters;
     expect(Math.hypot(jungle.x - start.x, jungle.z - start.z)).toBe(390);
@@ -82,7 +83,7 @@ describe('WORLD_MANIFEST', () => {
           ({ dimensions }) => area(dimensions.widthMeters, dimensions.depthMeters) > startArea,
         ),
     ).toBe(true);
-    expect(largest.id).toBe('dschungelberg');
+    expect(largest.id).toBe('rieseninsel');
     expect(largest.hasJungle).toBe(true);
     expect(WORLD_MANIFEST.islands.filter(({ isLarge }) => isLarge).every(({ hasJungle }) => hasJungle)).toBe(
       true,
@@ -91,6 +92,7 @@ describe('WORLD_MANIFEST', () => {
       'dschungelbucht',
       'wasserfallinsel',
       'dschungelberg',
+      'rieseninsel',
     ]);
   });
 
@@ -113,6 +115,7 @@ describe('WORLD_MANIFEST', () => {
       { id: 'westwind-eiland', widthMeters: 108, depthMeters: 74 },
       { id: 'nordstern-sandbank', widthMeters: 94, depthMeters: 66 },
       { id: 'sonnenrand-insel', widthMeters: 118, depthMeters: 82 },
+      { id: 'rieseninsel', widthMeters: 1600, depthMeters: 1200 },
     ]);
     const compactIslandIds = new Set(['schatzsandbank', 'westwind-eiland', 'nordstern-sandbank', 'sonnenrand-insel']);
     expect(destinations.filter(({ id }) => !compactIslandIds.has(id)).every(({ dimensions }) => (

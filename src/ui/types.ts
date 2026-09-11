@@ -220,6 +220,7 @@ export interface PauseViewModel {
 }
 
 export interface LetterViewModel {
+  conversation?: boolean;
   sequence: number;
   total: number;
   title: string;

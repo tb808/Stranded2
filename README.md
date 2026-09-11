@@ -1,6 +1,6 @@
 # Stranded2
 
-Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne Desktop-Browser. Das feste Archipel besteht aus vierzehn vollständig erzeugten und bereisbaren tropischen Inseln.
+Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne Desktop-Browser. Das feste Archipel besteht aus fünfzehn vollständig erzeugten und bereisbaren tropischen Inseln.
 
 ## Inseln
 
@@ -10,7 +10,7 @@ Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne
 - **Mangrovenbucht (310 × 225 m):** flache Brackwasserinsel mit gewundenem Kanal, Stelzwurzeln und dunklem Grün.
 - **Felsenriff (270 × 185 m):** karge, steinreiche Riffinsel mit drei Felsnadeln und einem Korallengarten.
 - **Wasserfallinsel (430 × 320 m):** große Dschungelinsel mit Hochquelle, sichtbarem Wasserfall und trinkbarem Nebelpool.
-- **Dschungelberg (500 × 375 m):** größte und höchste Insel mit Waldterrassen, Bergquelle und felsigem Gipfelgrat.
+- **Dschungelberg (500 × 375 m):** hohe Berginsel mit Waldterrassen, Bergquelle und felsigem Gipfelgrat.
 - **Vulkaninsel (350 × 270 m):** schwarze Basaltinsel mit Feuerkrater, Lavarinnen, Aschebucht und Obsidianfeld.
 - **Blüteninsel (320 × 230 m):** sanfte Wieseninsel mit Zwillingshügeln, dichtem Blütenmeer und altem Steinkreis.
 - **Mondklippen (320 × 230 m):** halbmondförmige Kalkinsel mit eingeschnittener Westbucht, hellen Felstürmen und windigem Grat.
@@ -19,9 +19,11 @@ Ein eigenständiges, statisch hostbares First-Person-Survival-Spiel für moderne
 - **Nordstern-Sandbank (94 × 66 m):** sehr flache Koralleninsel am nördlichen Kartenrand mit Gezeitentümpeln und hellem Sand.
 - **Sonnenrand-Insel (118 × 82 m):** abgelegene Palmeninsel im Südosten mit geschützter Bucht und markantem Felskopf.
 
+- **Rieseninsel (1.600 × 1.200 m):** über zehnmal die Fläche des Dschungelbergs, mehrere Kilometer nordöstlich des bisherigen Archipels. Dichter Wald mit 8.800 Bäumen, Baumriesen, Unterholz und Schmetterlingen umgibt den zentralen Smaragdsee. Alle bisherigen Landtierarten leben hier; vor der Küste schwimmen Fische und ein Hai. Ein freier Pfad führt von der Südwestbucht zu Elias’ bewohntem Lager mit Zelt, Feuer, Sitzbank, Vorräten und Arbeitstisch. `E` beginnt ein Gespräch mit Elias.
+
 Die verbindlichen Positionen, Größen, Biome, Beschreibungen, Landmarken, sicheren Landestellen und Ressourcenregeln stehen in `src/data/worldManifest.ts`.
 
-Unter Wasser gehen die Inselstrände in einen hellen, leicht gewellten Sandboden über. Kleine Schwärme aus dem Kenney-Survival-Kit schwimmen in den Küstenringen der vierzehn Inseln; drei zusätzliche Schwärme beleben die geschützte Palmenlagune, während der offene Ozean fischfrei bleibt.
+Unter Wasser gehen die Inselstrände in einen hellen, leicht gewellten Sandboden über. Kleine Schwärme aus dem Kenney-Survival-Kit schwimmen in den Küstenringen der fünfzehn Inseln; drei zusätzliche Schwärme beleben die geschützte Palmenlagune, während der offene Ozean fischfrei bleibt.
 
 Das Meer reagiert dynamisch auf Wetter und Tageszeit. Bei Hitze liegt es ruhiger, Regen erzeugt kräftigere Kreuzwellen und im Gewitter entstehen hohe, dunklere Wellen mit sichtbaren Schaumkämmen; zugleich pulsiert die Brandung um jede Insel. Eine langsame Gezeit hebt und senkt den Wasserspiegel. Dieselben Wellen und Strömungen wirken auf die Floßauftriebspunkte und treiben Schwimmer sowie ungesicherte Flöße ab. Auch die Meeresbrandung wird bei rauem Wetter hörbar kräftiger.
 
@@ -59,7 +61,7 @@ Auf der Blüteninsel wachsen sechzehn deutlich erkennbare Duftblüten, die nach 
 
 Die Mondklippen bilden eine windige Erkundungsprüfung. Auf hohen und exponierten Graten entzieht Klippenwind fortlaufend Ausdauer; die Stärke wird im HUD angezeigt. Drei Windsignale sind über beide Klippenarme verteilt und benötigen jeweils zwei Stöcke sowie einen Stoff zum Entzünden. Erst wenn alle drei sichtbar brennen, öffnet sich die Windgrat-Kiste mit einem großen Vorrat an Stoff, Metallschrott und Räucherfleisch.
 
-Auf der Schatzsandbank ragt eine Truhe nur halb aus dem Sand. Direkt daneben liegt der Bauplan für eine improvisierte Schaufel aus Palmstamm, Stöcken und Seilbindung. Mit ausgewählter Schaufel kann die Truhe dauerhaft freigelegt und anschließend geöffnet werden. Darin liegt eine Karte zu einer riesigen Insel außerhalb des bekannten Archipels; diese Zielinsel ist bewusst noch nicht Teil der Welt- oder HUD-Karte.
+Auf der Schatzsandbank ragt eine Truhe nur halb aus dem Sand. Direkt daneben liegt der Bauplan für eine improvisierte Schaufel aus Palmstamm, Stöcken und Seilbindung. Mit ausgewählter Schaufel kann die Truhe dauerhaft freigelegt und anschließend geöffnet werden. Darin liegt eine Karte zu einer riesigen Insel außerhalb des bekannten Archipels; beim Öffnen der Truhe wird die Rieseninsel dauerhaft auf der Inselkarte freigeschaltet. Vorher fehlen dort sowohl ihre Form als auch ihre Beschriftung. Der gespeicherte Truhenfund schaltet sie auch in älteren Spielständen frei; das Kartenitem muss nicht im Rucksack bleiben.
 
 Zu den baubaren Survival-Objekten gehören Lagerfeuer, Schutzdach, Bett, Truhe, Werkbank und Palm-Destille. Das Schutzdach setzt den Respawnpunkt; im Bett kann nachts bis zum Morgen geschlafen werden. Im Rucksack lassen sich ganze Itemstapel per Drag-and-drop oder durch Anklicken von Quelle und Ziel frei anordnen; die Anordnung bleibt im Spielstand erhalten. Jede Truhe besitzt 16 dauerhaft gespeicherte Plätze. `F` öffnet an einer Werkbank das vollständige Herstellungsmenü. Mit ausgewähltem Bauhammer kann die Werkbank separat per `E` eingepackt werden. Die verpackte Werkbank liegt anschließend im Inventar und lässt sich über „Benutzen“ oder „Ablegen“ ohne neue Materialkosten wieder platzieren.
 
@@ -67,7 +69,7 @@ Regen und Gewitter kühlen die Spielfigur aus. Ohne angezogenes Schutzhemd oder 
 
 Ein vollständiger Zeitzyklus dauert sieben Echtzeit-Minuten: fünf Minuten Tageslicht und zwei Minuten Nacht.
 
-Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt Lage und Größe aller vierzehn vorhandenen Inseln; die drei kleinen Außeninseln markieren den westlichen, nördlichen und südöstlichen Rand. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
+Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt zunächst vierzehn Inseln; nach dem Kartenfund in der Schatztruhe kommt die ferne Rieseninsel hinzu; die drei kleinen Außeninseln markieren den westlichen, nördlichen und südöstlichen Rand. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
 
 Das Expeditions-Notizbuch wird mit `N` geöffnet. Im Story-Teil werden alle bereits gelesenen Briefe von Elias dauerhaft zum Nachlesen gesammelt. Der Insel-Teil verzeichnet jede betretene Insel sowie die dort tatsächlich gefundenen Rohstoffe und beobachteten Tierarten. Dadurch lässt sich später gezielt nachschlagen, wo sich ein benötigtes Material farmen lässt. Alle Einträge werden automatisch im Spielstand gespeichert.
 

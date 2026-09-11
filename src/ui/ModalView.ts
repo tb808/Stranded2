@@ -68,12 +68,12 @@ export class ModalView {
     this.element.dataset.modal = 'letter';
 
     const close = button('Schließen', 'letter-view__close', this.actions.requestClose);
-    close.setAttribute('aria-label', 'Brief schließen');
+    close.setAttribute('aria-label', model.conversation ? 'Gespräch beenden' : 'Brief schließen');
     const article = element(
       'article',
       'letter-view',
       close,
-      element('p', 'letter-view__eyebrow', `Gefundener Brief · ${model.sequence} von ${model.total}`),
+      element('p', 'letter-view__eyebrow', model.conversation ? 'Gespräch am Lagerfeuer' : `Gefundener Brief · ${model.sequence} von ${model.total}`),
       element('h2', 'letter-view__title', model.title),
       element(
         'div',
@@ -87,7 +87,7 @@ export class ModalView {
         ...model.paragraphs.map((paragraph) => element('p', '', paragraph)),
       ),
       element('p', 'letter-view__signature', model.signature),
-      element('p', 'letter-view__hint', 'Automatisch im Notizbuch gespeichert · N zum Nachlesen · Esc oder × zum Schließen'),
+      element('p', 'letter-view__hint', model.conversation ? 'Elias bleibt hier im Lager · Esc oder × zum Beenden' : 'Automatisch im Notizbuch gespeichert · N zum Nachlesen · Esc oder × zum Schließen'),
       element('span', 'letter-view__seal', 'E'),
     );
     article.querySelector('h2')!.id = 'ui-modal-title';

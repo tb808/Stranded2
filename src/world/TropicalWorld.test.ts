@@ -1216,7 +1216,7 @@ describe("TropicalWorld Inseltiere und Grill", () => {
     );
     expect(wildlife).toHaveLength(expectedCount);
     expect(wildlife.some(({ position }) => world.getIslandAt(position.x, position.z)?.isStart)).toBe(false);
-    expect(wildlife.filter(({ kind }) => kind === "crocodile").every(({ position }) => world.getIslandAt(position.x, position.z)?.id === "mangrovenbucht")).toBe(true);
+    expect(wildlife.filter(({ kind }) => kind === "crocodile").every(({ position }) => ["mangrovenbucht", "rieseninsel"].includes(world.getIslandAt(position.x, position.z)?.id ?? ""))).toBe(true);
     expect(new Set(wildlife.map(({ kind }) => kind))).toEqual(new Set(["wild_boar", "chicken", "turtle", "bird", "crocodile", "snake"]));
 
     for (let first = 0; first < wildlife.length; first += 1) {
