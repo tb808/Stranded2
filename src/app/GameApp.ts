@@ -35,6 +35,7 @@ import {
   advanceBleeding,
   advancePoison,
   advanceSurvival,
+  canNaturallyRegenerateHealth,
   calculateSwimmingMotion,
   createInitialSurvivalState,
   formatFoodFreshness,
@@ -626,6 +627,7 @@ export class GameApp {
       isUnderwater: this.underwater,
       thirstDrainMultiplier: weatherThirstMultiplier * volcanicThirstMultiplier * (this.brackwaterSicknessSeconds > 0 ? BRACKWATER_SICKNESS_THIRST_MULTIPLIER : 1),
       isCold: this.isCold,
+      hasHarmfulCondition: this.hasHarmfulHealthCondition(volcanicHeat),
     });
     this.notifyFatigueTransition();
     if (cliffWind > 0 && !this.underwater) this.patchVitals({
@@ -1039,7 +1041,13 @@ export class GameApp {
 
   private async sleepInBed(): Promise<void> {
     if (this.sleeping) return;
-    const result = sleepUntilMorning(this.survival, this.brackwaterSicknessSeconds);
+    const position = this.physics?.getPlayerPosition();
+    const volcanicHeat = position ? this.world?.getVolcanicHeatLevel(position) ?? 0 : 0;
+    const result = sleepUntilMorning(
+      this.survival,
+      this.brackwaterSicknessSeconds,
+      this.poisonSecondsRemaining > 0 || this.isBleeding || this.isCold || volcanicHeat > 0,
+    );
     if (!result.slept) {
       this.ui.addToast({ text: "Du kannst zwischen 18:00 und 03:00 Uhr schlafen.", tone: "info" });
       return;
@@ -1579,6 +1587,13 @@ export class GameApp {
     this.patchVitals({ health });
   }
 
+  private hasHarmfulHealthCondition(volcanicHeat: number): boolean {
+    return this.brackwaterSicknessSeconds > 0 ||
+      this.poisonSecondsRemaining > 0 ||
+      this.isBleeding ||
+      volcanicHeat > 0;
+  }
+
   private advanceFoodSpoilage(deltaSeconds: number): void {
     if (deltaSeconds <= 0) return;
     const spoiledInBackpack = this.inventory.advanceSpoilage(deltaSeconds);
@@ -1875,6 +1890,12 @@ export class GameApp {
       const ratio = max > 0 ? value / max : 0;
       return { current: value, max, display: `${Math.round(value)}`, state: ratio < 0.2 ? "critical" as const : ratio < 0.45 ? "warning" as const : "good" as const };
     };
+    const regeneratingHealth = canNaturallyRegenerateHealth(this.survival, {
+      movement: "idle",
+      isUnderwater: this.underwater,
+      isCold: this.isCold,
+      hasHarmfulCondition: this.hasHarmfulHealthCondition(volcanicHeat),
+    });
     return {
       health: metric(this.survival.health),
       hunger: metric(this.survival.hunger),
@@ -1891,7 +1912,7 @@ export class GameApp {
         state: this.survival.fatigue >= 80 ? "critical" : this.survival.fatigue >= 50 ? "warning" : "good",
       },
       headingDegrees: heading,
-      locationLabel: `${this.locationLabel(position)} · Tag ${this.day} · ${this.weather.icon} ${this.weather.label}${volcanicHeat === 2 ? " · 🔥 Gluthitze" : volcanicHeat === 1 ? " · 🌡️ Vulkanhitze" : ""}${cliffWind === 2 ? " · 🌬️ Sturmgrat" : cliffWind === 1 ? " · 💨 Klippenwind" : ""}${this.isCold ? " · 🥶 Kalt" : this.weather.isRaining && this.warmthSource === "fire" ? " · 🔥 Feuerwärme" : this.weather.isRaining && this.warmthSource === "clothing" ? " · 👕 Geschützt" : ""}${this.survival.fatigue >= 80 ? " · 💤 Erschöpft" : this.survival.fatigue >= 50 ? " · 😴 Müde" : ""}${this.isBleeding ? " · 🩸 Blutung" : ""}${this.poisonSecondsRemaining > 0 ? ` · ☠ Vergiftet ${Math.ceil(this.poisonSecondsRemaining / DAY_LENGTH_SECONDS)} T` : ""}${this.brackwaterSicknessSeconds > 0 ? ` · 🤢 Krank ${Math.ceil(this.brackwaterSicknessSeconds)} s` : ""}${deathPack ? ` · Rucksack ${Math.round(deathPack.distance)} m` : ""}`,
+      locationLabel: `${this.locationLabel(position)} · Tag ${this.day} · ${this.weather.icon} ${this.weather.label}${volcanicHeat === 2 ? " · 🔥 Gluthitze" : volcanicHeat === 1 ? " · 🌡️ Vulkanhitze" : ""}${cliffWind === 2 ? " · 🌬️ Sturmgrat" : cliffWind === 1 ? " · 💨 Klippenwind" : ""}${this.isCold ? " · 🥶 Kalt" : this.weather.isRaining && this.warmthSource === "fire" ? " · 🔥 Feuerwärme" : this.weather.isRaining && this.warmthSource === "clothing" ? " · 👕 Geschützt" : ""}${this.survival.fatigue >= 80 ? " · 💤 Erschöpft" : this.survival.fatigue >= 50 ? " · 😴 Müde" : ""}${this.isBleeding ? " · 🩸 Blutung" : ""}${this.poisonSecondsRemaining > 0 ? ` · ☠ Vergiftet ${Math.ceil(this.poisonSecondsRemaining / DAY_LENGTH_SECONDS)} T` : ""}${this.brackwaterSicknessSeconds > 0 ? ` · 🤢 Krank ${Math.ceil(this.brackwaterSicknessSeconds)} s` : ""}${regeneratingHealth ? " · ❤ Heilung" : ""}${deathPack ? ` · Rucksack ${Math.round(deathPack.distance)} m` : ""}`,
       ...(this.selectedBuild
         ? { prompt: { key: "LMB", action: this.buildPlacementValid ? "Bauen" : this.buildPlacementReason || "Ungültig", target: BUILDABLE_CATALOG[this.selectedBuild].label } }
         : targetPrompt

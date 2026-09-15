@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DAY_LENGTH_SECONDS,
   DAYLIGHT_DURATION_SECONDS,
+  HEALTH_REGENERATION_THRESHOLD,
   NIGHT_DURATION_SECONDS,
   SURVIVAL_RATES,
   SURVIVAL_START,
@@ -30,7 +31,9 @@ describe('survival model', () => {
       staminaRegenPerSecond: 15,
       staminaRegenDelaySeconds: 1,
       fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
+      healthRegenerationPerSecond: 0.1,
     });
+    expect(HEALTH_REGENERATION_THRESHOLD).toBe(75);
     expect(DAYLIGHT_DURATION_SECONDS).toBe(420);
     expect(NIGHT_DURATION_SECONDS).toBe(180);
     expect(DAY_LENGTH_SECONDS).toBe(600);
@@ -137,6 +140,33 @@ describe('survival model', () => {
   it('damages health at maximum fatigue until the player sleeps', () => {
     const exhausted = advanceSurvival(state({ fatigue: 100 }), 10);
     expect(exhausted.health).toBeCloseTo(99.2);
+  });
+
+  it('regeneriert Leben, solange Hunger und Durst mindestens 75 Prozent betragen', () => {
+    const after = advanceSurvival(state({ health: 50, hunger: 80, thirst: 80 }), 10);
+    expect(after.health).toBeCloseTo(51);
+
+    const exactlyAtThreshold = advanceSurvival(state({ health: 50, hunger: 75, thirst: 75 }), 1);
+    expect(exactlyAtThreshold.health).toBe(50);
+  });
+
+  it('pausiert natürliche Heilung bei Mangel oder einem schädlichen Zustand', () => {
+    const hungry = advanceSurvival(state({ health: 50, hunger: 74, thirst: 100 }), 10);
+    expect(hungry.health).toBe(50);
+
+    const poisoned = advanceSurvival(state({ health: 50, hunger: 100, thirst: 100 }), 10, {
+      movement: 'idle',
+      isUnderwater: false,
+      hasHarmfulCondition: true,
+    });
+    expect(poisoned.health).toBe(50);
+
+    const cold = advanceSurvival(state({ health: 50, hunger: 100, thirst: 100 }), 10, {
+      movement: 'idle',
+      isUnderwater: false,
+      isCold: true,
+    });
+    expect(cold.health).toBe(50);
   });
 
   it('wraps the ten-minute day clock', () => {

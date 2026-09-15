@@ -113,10 +113,10 @@ it('lässt Hunger und Durst auch im Schlaf tödlich werden', () => {
   expect(result.state.health).toBe(0);
 });
 it('berechnet Brackwasserkrankheit nur für ihre verbleibende Dauer', () => {
-  const original = state({ hunger: 100, thirst: 100, dayElapsedSeconds: elapsedAt(0.9) });
+  const original = state({ health: 50, hunger: 100, thirst: 100, dayElapsedSeconds: elapsedAt(0.9) });
   const healthy = sleepUntilMorning(original);
   const sick = sleepUntilMorning(original, 20);
-  expect(sick.state.health).toBeCloseTo(94);
+  expect(healthy.state.health - sick.state.health).toBeCloseTo(8);
   expect(healthy.state.thirst - sick.state.thirst).toBeCloseTo(20 * SURVIVAL_RATES.thirstDrainPerSecond * 1.4);
 });
 it('lässt Tote nicht schlafen', () => {

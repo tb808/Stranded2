@@ -75,7 +75,7 @@ export function getWakeTimeFraction(dayElapsedSeconds: number): number {
   return EARLIEST_WAKE_FRACTION + bedtimeProgress * (LATEST_WAKE_FRACTION - EARLIEST_WAKE_FRACTION);
 }
 
-export function sleepUntilMorning(state: SurvivalState, sicknessSeconds = 0): SleepResult {
+export function sleepUntilMorning(state: SurvivalState, sicknessSeconds = 0, hasHarmfulCondition = false): SleepResult {
   if (!Number.isFinite(sicknessSeconds) || sicknessSeconds < 0) throw new RangeError('Sickness time must be finite and non-negative.');
   if (state.health <= 0 || !isSleepTime(state.dayElapsedSeconds)) {
     return { slept: false, state: { ...state }, skippedSeconds: 0 };
@@ -86,10 +86,12 @@ export function sleepUntilMorning(state: SurvivalState, sicknessSeconds = 0): Sl
   const skippedSeconds = (wakeElapsedSeconds - currentElapsedSeconds + DAY_LENGTH_SECONDS) % DAY_LENGTH_SECONDS;
   const sickSeconds = Math.min(skippedSeconds, sicknessSeconds);
   let rested = advanceSurvival({ ...state, fatigue: 0 }, sickSeconds, {
-    movement: 'idle', isUnderwater: false, thirstDrainMultiplier: BRACKWATER_SICKNESS_THIRST_MULTIPLIER,
+    movement: 'idle', isUnderwater: false, thirstDrainMultiplier: BRACKWATER_SICKNESS_THIRST_MULTIPLIER, hasHarmfulCondition: true,
   });
   rested = { ...rested, health: Math.max(0, rested.health - sickSeconds * BRACKWATER_SICKNESS_DAMAGE_PER_SECOND) };
-  rested = advanceSurvival(rested, skippedSeconds - sickSeconds);
+  rested = advanceSurvival(rested, skippedSeconds - sickSeconds, {
+    movement: 'idle', isUnderwater: false, hasHarmfulCondition,
+  });
 
   return {
     slept: true,

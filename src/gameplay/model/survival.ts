@@ -2,6 +2,7 @@ export const DAYLIGHT_DURATION_SECONDS = 7 * 60;
 export const NIGHT_DURATION_SECONDS = 3 * 60;
 export const DAY_LENGTH_SECONDS = DAYLIGHT_DURATION_SECONDS + NIGHT_DURATION_SECONDS;
 export const LEGACY_DAY_LENGTH_SECONDS = 30 * 60;
+export const HEALTH_REGENERATION_THRESHOLD = 75;
 
 export const SURVIVAL_LIMITS = {
   health: 100,
@@ -36,6 +37,7 @@ export const SURVIVAL_RATES = {
   warmMaxStaminaRecoveryPerSecond: 0.15,
   fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
   exhaustedHealthDamagePerSecond: 0.08,
+  healthRegenerationPerSecond: 0.1,
 } as const;
 
 export const MINIMUM_COLD_MAX_STAMINA = 35;
@@ -62,6 +64,7 @@ export interface SurvivalActivity {
   readonly isUnderwater: boolean;
   readonly thirstDrainMultiplier?: number;
   readonly isCold?: boolean;
+  readonly hasHarmfulCondition?: boolean;
 }
 
 interface DrainResult {
@@ -108,6 +111,14 @@ export function advanceSurvival(
     thirst.secondsAtZero * SURVIVAL_RATES.dehydrationDamagePerSecond +
     oxygen.secondsAtZero * SURVIVAL_RATES.drowningDamagePerSecond;
   const exhaustionDamage = fatigue.secondsAtMaximum * SURVIVAL_RATES.exhaustedHealthDamagePerSecond;
+  const regenerationSeconds = canNaturallyRegenerateHealth(state, activity)
+    ? Math.min(
+        secondsAtOrAboveThreshold(state.hunger, SURVIVAL_RATES.hungerDrainPerSecond, deltaSeconds),
+        secondsAtOrAboveThreshold(state.thirst, SURVIVAL_RATES.thirstDrainPerSecond * thirstMultiplier, deltaSeconds),
+        secondsBelowMaximum(state.fatigue, SURVIVAL_RATES.fatigueGainPerSecond, deltaSeconds),
+      )
+    : 0;
+  const healthRegeneration = regenerationSeconds * SURVIVAL_RATES.healthRegenerationPerSecond;
 
   const maxStamina = activity.isCold
     ? clamp(
@@ -123,7 +134,7 @@ export function advanceSurvival(
   const stamina = advanceStamina(state, activity.movement, deltaSeconds, maxStamina, fatigue.value);
 
   return {
-    health: clamp(state.health - healthDamage - exhaustionDamage, 0, SURVIVAL_LIMITS.health),
+    health: clamp(state.health - healthDamage - exhaustionDamage + healthRegeneration, 0, SURVIVAL_LIMITS.health),
     hunger: hunger.value,
     thirst: thirst.value,
     stamina: stamina.value,
@@ -133,6 +144,20 @@ export function advanceSurvival(
     staminaRegenDelayRemaining: stamina.regenDelayRemaining,
     dayElapsedSeconds: (state.dayElapsedSeconds + deltaSeconds) % DAY_LENGTH_SECONDS,
   };
+}
+
+export function canNaturallyRegenerateHealth(
+  state: SurvivalState,
+  activity: SurvivalActivity = DEFAULT_ACTIVITY,
+): boolean {
+  return state.health > 0 &&
+    state.health < SURVIVAL_LIMITS.health &&
+    state.hunger >= HEALTH_REGENERATION_THRESHOLD &&
+    state.thirst >= HEALTH_REGENERATION_THRESHOLD &&
+    state.fatigue < SURVIVAL_LIMITS.fatigue &&
+    !activity.isUnderwater &&
+    !activity.isCold &&
+    !activity.hasHarmfulCondition;
 }
 
 function advanceStamina(
@@ -187,6 +212,18 @@ function drain(value: number, rate: number, deltaSeconds: number): DrainResult {
     value: clamp(value - rate * deltaSeconds, 0, 100),
     secondsAtZero: Math.max(0, deltaSeconds - secondsUntilEmpty),
   };
+}
+
+function secondsAtOrAboveThreshold(value: number, rate: number, deltaSeconds: number): number {
+  if (value < HEALTH_REGENERATION_THRESHOLD) return 0;
+  if (rate <= 0) return deltaSeconds;
+  return Math.min(deltaSeconds, Math.max(0, (value - HEALTH_REGENERATION_THRESHOLD) / rate));
+}
+
+function secondsBelowMaximum(value: number, rate: number, deltaSeconds: number): number {
+  if (value >= SURVIVAL_LIMITS.fatigue) return 0;
+  if (rate <= 0) return deltaSeconds;
+  return Math.min(deltaSeconds, Math.max(0, (SURVIVAL_LIMITS.fatigue - value) / rate));
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
