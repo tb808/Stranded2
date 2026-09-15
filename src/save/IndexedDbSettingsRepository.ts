@@ -10,7 +10,7 @@ export class IndexedDbSettingsRepository<T> {
   private readonly storeName = "settings";
 
   public async open(): Promise<void> {
-    if (this.database || this.unavailableReason) return;
+    if (this.database) return;
     try {
       this.database = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open(this.databaseName, 1);
@@ -26,6 +26,7 @@ export class IndexedDbSettingsRepository<T> {
         this.database?.close();
         this.database = null;
       };
+      this.unavailableReason = null;
     } catch (error) {
       this.unavailableReason = error instanceof Error ? error.message : String(error);
       throw error;
@@ -57,7 +58,6 @@ export class IndexedDbSettingsRepository<T> {
 
   private async ensureOpen(): Promise<void> {
     if (this.database) return;
-    if (this.unavailableReason) throw new Error(this.unavailableReason);
     await this.open();
   }
 

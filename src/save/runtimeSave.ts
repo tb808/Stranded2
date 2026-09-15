@@ -152,6 +152,7 @@ function isDynamicDrop(value: unknown): boolean {
     isItemId(value.itemId) &&
     isPositiveInteger(value.count) &&
     value.count <= ITEM_CATALOG[value.itemId].stackLimit * 24 &&
+    isFreshness(value) &&
     isVec3(value.position);
 }
 
@@ -163,6 +164,8 @@ function isDeathPackSaves(value: unknown): boolean {
 
 function isInventory(value: unknown, maximumSlots = 24): boolean {
   const occupiedSlots = new Set<number>();
+  if (Array.isArray(value) && value.some((stack) => isRecord(stack) && stack.slotIndex !== undefined) &&
+      !value.every((stack) => isRecord(stack) && stack.slotIndex !== undefined)) return false;
   return Array.isArray(value) && value.length <= maximumSlots && value.every((stack) => {
     if (!isRecord(stack) || !isItemId(stack.itemId) || !isPositiveInteger(stack.quantity)) return false;
     if (stack.slotIndex !== undefined) {
@@ -178,12 +181,20 @@ function isInventory(value: unknown, maximumSlots = 24): boolean {
 }
 
 function isLoot(value: unknown): boolean {
-  return Array.isArray(value) && value.length <= 24 && value.every((stack) => (
+  return Array.isArray(value) && value.length <= 36 && value.every((stack) => (
     isRecord(stack) &&
     isItemId(stack.itemId) &&
     isPositiveInteger(stack.count) &&
-    stack.count <= ITEM_CATALOG[stack.itemId].stackLimit * 24
+    stack.count <= ITEM_CATALOG[stack.itemId].stackLimit * 24 &&
+    isFreshness(stack)
   ));
+}
+
+function isFreshness(stack: UnknownRecord): boolean {
+  if (stack.spoilageSecondsRemaining === undefined) return true;
+  if (!isItemId(stack.itemId)) return false;
+  const duration = getFoodSpoilageDuration(stack.itemId);
+  return duration !== undefined && isRangeNumber(stack.spoilageSecondsRemaining, 0, duration);
 }
 
 function isSurvival(value: unknown): boolean {

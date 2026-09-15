@@ -48,6 +48,10 @@ test("Goldpfad: Werkzeuge, Versorgung, Schutzdach, Floß, Überfahrt und Reload"
   await page.getByRole("button", { name: "Neues Spiel" }).click();
   await expect(page.getByRole("region", { name: "Spielanzeige" })).toBeVisible();
   await page.waitForFunction(() => window.__stranded2Debug?.snapshot());
+  await page.keyboard.press("Tab");
+  await expect(page.locator('[data-panel="inventory"]')).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.locator('[data-panel="inventory"]')).toHaveCount(0);
 
   const toolState = await page.evaluate(() => {
     const debug = window.__stranded2Debug!;

@@ -41,6 +41,7 @@ import { clamp, distanceSquaredXZ, fbm2D, SeededRandom, smoothstep, type Vec3Lik
 import { CHEST_STORAGE_SLOTS, type BuildableId } from "../data/buildables";
 import type { ItemId } from "../data/items";
 import { LORE_LETTERS, type LoreLetterId } from "../data/loreLetters";
+import { getFoodSpoilageDuration } from "../gameplay/model/foodSpoilage";
 import { Inventory, type ItemStack } from "../gameplay/model/inventory";
 import { oceanConditionsForWeather, type OceanConditions } from "../gameplay/model/ocean";
 import { weatherState, type WeatherState } from "../gameplay/model/weather";
@@ -591,6 +592,7 @@ export type WorldEntityKind = ItemId | "palm" | "tree" | "crab" | WildlifeKind |
 export interface LootStack {
   itemId: ItemId;
   count: number;
+  spoilageSecondsRemaining?: number | undefined;
 }
 
 export interface ClimbOutcome {
@@ -613,6 +615,7 @@ interface WorldEntity {
   cooldown: number;
   home?: Vector3;
   dynamicDrop?: boolean;
+  spoilageSecondsRemaining?: number | undefined;
   falling?: FallingTreeState;
   instancedTree?: InstancedTreeInstance;
   mixer?: AnimationMixer;
@@ -711,6 +714,7 @@ export interface DynamicDropState {
   id: string;
   itemId: ItemId;
   count: number;
+  spoilageSecondsRemaining?: number | undefined;
   position: Vec3Like;
 }
 
@@ -995,52 +999,7 @@ export class TropicalWorld {
       this.replenishDaily(this.currentDay);
     }
 
-    for (const building of this.buildings.values()) {
-      if ((building.type === "palm_still" || building.type === "rain_collector")) {
-        const capacity = building.type === "rain_collector" ? 5 : 3;
-        const collectionMultiplier = building.type === "rain_collector"
-          ? weather.isRaining ? weather.rainCollectionMultiplier : 0
-          : weather.rainCollectionMultiplier;
-        if (building.waterCharges < capacity) building.waterProgress += dtSeconds * collectionMultiplier;
-        while (building.waterProgress >= 360 && building.waterCharges < capacity) {
-          building.waterProgress -= 360;
-          building.waterCharges += 1;
-          events.push({ type: "message", text: `${building.type === "rain_collector" ? "Der Regenfänger" : "Die Palm-Destille"} hat eine Portion Wasser gesammelt.` });
-        }
-      }
-      if (building.type === "campfire") {
-        building.fireFuel = Math.max(0, building.fireFuel - dtSeconds);
-        if (building.cookingProgress > 0 && building.fireFuel > 0) {
-          building.cookingProgress += dtSeconds;
-        }
-        this.updateCampfireCookingVisual(building);
-      }
-      if (building.type === "fish_trap") {
-        const stored = building.fishTrapStored ?? 0;
-        if (building.fishTrapBaited && stored < FISH_TRAP_CAPACITY) {
-          building.fishTrapProgress = (building.fishTrapProgress ?? 0) + dtSeconds;
-          if (building.fishTrapProgress >= FISH_TRAP_CATCH_SECONDS) {
-            building.fishTrapProgress = 0;
-            building.fishTrapBaited = false;
-            building.fishTrapStored = stored + 1;
-            events.push({ type: "message", text: "Eine Fischreuse in der Palmenlagune hat einen Fisch gefangen." });
-          }
-        }
-        this.updateFishTrapVisual(building);
-      }
-      if (building.type === "smoking_rack") {
-        if ((building.smokerInputCount ?? 0) > 0 && (building.smokerReadyCount ?? 0) === 0) {
-          building.smokerProgress = (building.smokerProgress ?? 0) + dtSeconds;
-          if (building.smokerProgress >= SMOKING_DURATION_SECONDS) {
-            building.smokerProgress = 0;
-            building.smokerReadyCount = building.smokerInputCount ?? 0;
-            building.smokerInputCount = 0;
-            events.push({ type: "message", text: "Das Räucherfleisch in der Dschungelbucht ist fertig." });
-          }
-        }
-        this.updateSmokingRackVisual(building);
-      }
-    }
+    events.push(...this.advanceBuildingProduction(dtSeconds, weather));
 
     this.updateBurningTrees(dtSeconds, events);
     this.updateLightning(dtSeconds, playerPosition, weather, events);
@@ -1220,6 +1179,11 @@ export class TropicalWorld {
       this.removeEntity(entity);
       return { success: true, message: "Dein verlorener Rucksack wurde geborgen.", loot: loot.map((entry) => ({ ...entry })) };
     }
+    if (entity.dynamicDrop) {
+      this.removeEntity(entity);
+      return { success: true, message: `${entity.amount}× ${labelForKind(entity.kind)} aufgenommen.`,
+        loot: [{ itemId: entity.kind as ItemId, count: entity.amount, spoilageSecondsRemaining: entity.spoilageSecondsRemaining }] };
+    }
     if (entity.kind === "elias" || entity.kind === "building" || entity.kind === "raft" || entity.kind === "lore_letter" || entity.kind === "climbing_anchor" || entity.kind === "signal_beacon" || entity.kind === "palm" || entity.kind === "tree" || entity.kind === "crab" || isWildlifeKind(entity.kind) || entity.kind === "shark") {
       return { success: false, message: "Das kannst du nicht aufheben.", loot: [] };
     }
@@ -1232,7 +1196,7 @@ export class TropicalWorld {
     return {
       success: true,
       message: `${count}× ${labelForKind(entity.kind)} aufgenommen.`,
-      loot: [{ itemId: entity.kind, count }],
+      loot: [{ itemId: entity.kind, count, ...(entity.spoilageSecondsRemaining === undefined ? {} : { spoilageSecondsRemaining: entity.spoilageSecondsRemaining }) }],
     };
   }
 
@@ -1320,7 +1284,7 @@ export class TropicalWorld {
       }
       return { hit: true, message: `${treeLabel} getroffen (${entity.hitPoints}/${entity.maxHitPoints}).` };
     }
-    if (entity.kind === "crab") {
+    if (entity.kind === "crab" && !entity.dynamicDrop) {
       const damage = tool === "wooden_spear" ? 35 : tool === "obsidian_knife" ? 30 : tool === "stone_knife" ? 15 : tool === "stone_axe" ? 20 : 0;
       if (damage <= 0) return { hit: false, message: "Du brauchst ein Werkzeug gegen die Krabbe." };
       entity.hitPoints -= damage;
@@ -1455,13 +1419,88 @@ export class TropicalWorld {
     return true;
   }
 
+  public advanceBuildingProduction(dtSeconds: number, weather: WeatherState): WorldEvent[] {
+    if (!Number.isFinite(dtSeconds) || dtSeconds < 0) throw new RangeError('Production time must be finite and non-negative.');
+    const events: WorldEvent[] = [];
+    for (const building of this.buildings.values()) {
+      if ((building.type === "palm_still" || building.type === "rain_collector")) {
+        const capacity = building.type === "rain_collector" ? 5 : 3;
+        const collectionMultiplier = building.type === "rain_collector"
+          ? weather.isRaining ? weather.rainCollectionMultiplier : 0
+          : weather.rainCollectionMultiplier;
+        if (building.waterCharges < capacity) building.waterProgress += dtSeconds * collectionMultiplier;
+        while (building.waterProgress >= 360 && building.waterCharges < capacity) {
+          building.waterProgress -= 360;
+          building.waterCharges += 1;
+          events.push({ type: "message", text: `${building.type === "rain_collector" ? "Der Regenfänger" : "Die Palm-Destille"} hat eine Portion Wasser gesammelt.` });
+        }
+        if (building.waterCharges >= capacity) building.waterProgress = 0;
+      }
+      if (building.type === "campfire") {
+        const burningSeconds = Math.min(building.fireFuel, dtSeconds);
+        building.fireFuel = Math.max(0, building.fireFuel - dtSeconds);
+        if (building.cookingProgress > 0) {
+          const duration = building.cookingItem === "raw_meat" ? 30 : building.cookingItem === "raw_fish" ? 20 : 25;
+          building.cookingProgress = Math.min(duration, building.cookingProgress + burningSeconds);
+        }
+        this.updateCampfireCookingVisual(building);
+      }
+      if (building.type === "fish_trap") {
+        const stored = building.fishTrapStored ?? 0;
+        if (building.fishTrapBaited && stored < FISH_TRAP_CAPACITY) {
+          building.fishTrapProgress = (building.fishTrapProgress ?? 0) + dtSeconds;
+          if (building.fishTrapProgress >= FISH_TRAP_CATCH_SECONDS) {
+            building.fishTrapProgress = 0;
+            building.fishTrapBaited = false;
+            building.fishTrapStored = stored + 1;
+            events.push({ type: "message", text: "Eine Fischreuse in der Palmenlagune hat einen Fisch gefangen." });
+          }
+        }
+        this.updateFishTrapVisual(building);
+      }
+      if (building.type === "smoking_rack") {
+        if ((building.smokerInputCount ?? 0) > 0 && (building.smokerReadyCount ?? 0) === 0) {
+          building.smokerProgress = (building.smokerProgress ?? 0) + dtSeconds;
+          if (building.smokerProgress >= SMOKING_DURATION_SECONDS) {
+            building.smokerProgress = 0;
+            building.smokerReadyCount = building.smokerInputCount ?? 0;
+            building.smokerInputCount = 0;
+            events.push({ type: "message", text: "Das Räucherfleisch in der Dschungelbucht ist fertig." });
+          }
+        }
+        this.updateSmokingRackVisual(building);
+      }
+    }
+
+    return events;
+  }
+
   public advanceStoredFoodSpoilage(deltaSeconds: number): number {
+    if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) throw new RangeError('Spoilage time must be finite and non-negative.');
     let spoiledCount = 0;
     for (const building of this.buildings.values()) {
       if (building.type !== "chest" || !building.storedItems?.length) continue;
       const inventory = new Inventory(CHEST_STORAGE_SLOTS, building.storedItems);
       spoiledCount += inventory.advanceSpoilage(deltaSeconds);
       building.storedItems = [...inventory.stacks];
+    }
+    const ageLoot = (stack: LootStack): LootStack => {
+      const duration = getFoodSpoilageDuration(stack.itemId);
+      if (duration === undefined) return { ...stack };
+      const remaining = Math.max(0, (stack.spoilageSecondsRemaining ?? duration) - deltaSeconds);
+      if (remaining === 0) {
+        spoiledCount += stack.count;
+        return { itemId: "spoiled_food", count: stack.count };
+      }
+      return { ...stack, spoilageSecondsRemaining: remaining };
+    };
+    for (const [id, loot] of this.deathPackLoot) this.deathPackLoot.set(id, loot.map(ageLoot));
+    for (const id of this.dynamicDropIds) {
+      const entity = this.entities.get(id);
+      if (!entity?.available) continue;
+      const aged = ageLoot({ itemId: entity.kind as ItemId, count: entity.amount, spoilageSecondsRemaining: entity.spoilageSecondsRemaining });
+      entity.kind = aged.itemId;
+      entity.spoilageSecondsRemaining = aged.spoilageSecondsRemaining;
     }
     return spoiledCount;
   }
@@ -1551,6 +1590,10 @@ export class TropicalWorld {
 
   public getRaft(): RaftState | null {
     return this.raft;
+  }
+
+  public isLooseLoot(id: string): boolean {
+    return this.dynamicDropIds.has(id);
   }
 
   public damageRaft(amount: number): void {
@@ -1667,6 +1710,7 @@ export class TropicalWorld {
           id,
           itemId: entity.kind as ItemId,
           count: Math.max(1, Math.floor(entity.amount)),
+          ...(entity.spoilageSecondsRemaining === undefined ? {} : { spoilageSecondsRemaining: entity.spoilageSecondsRemaining }),
           position: { x: entity.object.position.x, y: entity.object.position.y, z: entity.object.position.z },
         }];
       }),
@@ -4927,7 +4971,7 @@ export class TropicalWorld {
       const position = origin.clone().add(new Vector3(Math.cos(angleOffset) * 1.2, 0, Math.sin(angleOffset) * 1.2));
       position.y = this.heightAt(position.x, position.z) + 0.16;
       const id = this.nextDynamicDropId();
-      this.createDynamicDrop({ id, itemId: stack.itemId, count, position });
+      this.createDynamicDrop({ id, itemId: stack.itemId, count, position, spoilageSecondsRemaining: stack.spoilageSecondsRemaining });
       ids.push(id);
       angleOffset += 1.7;
     }
@@ -4952,6 +4996,7 @@ export class TropicalWorld {
       maxHitPoints: 1,
       cooldown: 0,
       dynamicDrop: true,
+      spoilageSecondsRemaining: drop.spoilageSecondsRemaining,
     });
     this.dynamicDropIds.add(drop.id);
     this.reserveEntityCounter(drop.id);

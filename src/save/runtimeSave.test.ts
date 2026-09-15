@@ -303,3 +303,20 @@ describe("RuntimeSaveV1", () => {
     expect(isRuntimeSaveV1(extreme)).toBe(false);
   });
 });
+
+it('akzeptiert alle 36 Stapel eines verlorenen großen Rucksacks', () => {
+  const save = validSave();
+  save.world.deathPacks.push({ id: 'death-pack-100', position: { x: 0, y: 1, z: 0 },
+    loot: Array.from({ length: 36 }, () => ({ itemId: 'stone_knife', count: 1 })) });
+  expect(isRuntimeSaveV1(save)).toBe(true);
+});
+it('weist widersprüchliche Inventarplätze und ungültige Frische im Weltloot zurück', () => {
+  const save = validSave();
+  save.player.inventory = [{ itemId: 'fiber', quantity: 1 }, { itemId: 'stone', quantity: 1, slotIndex: 0 }];
+  expect(isRuntimeSaveV1(save)).toBe(false);
+  const foodSave = validSave();
+  foodSave.world.dynamicDrops[0]!.spoilageSecondsRemaining = 20;
+  expect(isRuntimeSaveV1(foodSave)).toBe(false);
+  foodSave.world.dynamicDrops[0]!.itemId = 'mango';
+  expect(isRuntimeSaveV1(foodSave)).toBe(true);
+});

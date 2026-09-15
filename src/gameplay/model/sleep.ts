@@ -2,8 +2,10 @@ import {
   DAY_LENGTH_SECONDS,
   DAYLIGHT_DURATION_SECONDS,
   NIGHT_DURATION_SECONDS,
+  advanceSurvival,
   type SurvivalState,
 } from './survival';
+import { BRACKWATER_SICKNESS_DAMAGE_PER_SECOND, BRACKWATER_SICKNESS_THIRST_MULTIPLIER } from './sickness';
 
 export const DAY_START_FRACTION = 0.2;
 export const NIGHT_END_FRACTION = 0.2;
@@ -73,23 +75,28 @@ export function getWakeTimeFraction(dayElapsedSeconds: number): number {
   return EARLIEST_WAKE_FRACTION + bedtimeProgress * (LATEST_WAKE_FRACTION - EARLIEST_WAKE_FRACTION);
 }
 
-export function sleepUntilMorning(state: SurvivalState): SleepResult {
-  if (!isSleepTime(state.dayElapsedSeconds)) {
+export function sleepUntilMorning(state: SurvivalState, sicknessSeconds = 0): SleepResult {
+  if (!Number.isFinite(sicknessSeconds) || sicknessSeconds < 0) throw new RangeError('Sickness time must be finite and non-negative.');
+  if (state.health <= 0 || !isSleepTime(state.dayElapsedSeconds)) {
     return { slept: false, state: { ...state }, skippedSeconds: 0 };
   }
 
   const wakeElapsedSeconds = getElapsedSecondsAtTimeOfDay(getWakeTimeFraction(state.dayElapsedSeconds));
   const currentElapsedSeconds = state.dayElapsedSeconds % DAY_LENGTH_SECONDS;
   const skippedSeconds = (wakeElapsedSeconds - currentElapsedSeconds + DAY_LENGTH_SECONDS) % DAY_LENGTH_SECONDS;
+  const sickSeconds = Math.min(skippedSeconds, sicknessSeconds);
+  let rested = advanceSurvival({ ...state, fatigue: 0 }, sickSeconds, {
+    movement: 'idle', isUnderwater: false, thirstDrainMultiplier: BRACKWATER_SICKNESS_THIRST_MULTIPLIER,
+  });
+  rested = { ...rested, health: Math.max(0, rested.health - sickSeconds * BRACKWATER_SICKNESS_DAMAGE_PER_SECOND) };
+  rested = advanceSurvival(rested, skippedSeconds - sickSeconds);
 
   return {
     slept: true,
     skippedSeconds,
     state: {
-      ...state,
-      hunger: Math.max(0, state.hunger - 8),
-      thirst: Math.max(0, state.thirst - 12),
-      stamina: state.maxStamina,
+      ...rested,
+      stamina: rested.maxStamina,
       fatigue: 0,
       staminaRegenDelayRemaining: 0,
       dayElapsedSeconds: wakeElapsedSeconds,

@@ -1543,3 +1543,53 @@ describe("TropicalWorld Unterwasserwelt", () => {
     world.dispose();
   });
 });
+
+
+describe('Produktion und verlorene Nahrung', () => {
+  it('gart nur während der verbleibenden Brenndauer und begrenzt den Fortschritt', () => {
+    const world = createWorld();
+    const fire = world.createBuilding('campfire', { x: 0, y: 1, z: 0 }, 0);
+    fire.fireFuel = 2;
+    fire.cookingItem = 'raw_meat';
+    fire.cookingProgress = 27;
+    world.advanceBuildingProduction(100, weatherState('clear'));
+    expect(fire.cookingProgress).toBe(29);
+    expect(fire.fireFuel).toBe(0);
+    fire.fireFuel = 60;
+    world.advanceBuildingProduction(100, weatherState('clear'));
+    expect(fire.cookingProgress).toBe(30);
+    world.dispose();
+  });
+  it('führt Produktion auch bei einem Zeitsprung korrekt aus', () => {
+    const world = createWorld();
+    const still = world.createBuilding('palm_still', { x: 0, y: 1, z: 0 }, 0);
+    const rack = world.createBuilding('smoking_rack', { x: 5, y: 1, z: 0 }, 0);
+    rack.smokerInputCount = 3;
+    const trap = world.createBuilding('fish_trap', { x: 10, y: 0, z: 0 }, 0);
+    trap.fishTrapBaited = true;
+    world.advanceBuildingProduction(3000, weatherState('rain'));
+    expect(still.waterCharges).toBe(3);
+    expect(still.waterProgress).toBe(0);
+    expect(rack.smokerReadyCount).toBe(3);
+    expect(trap.fishTrapStored).toBe(1);
+    world.dispose();
+  });
+  it('bewahrt Frische über Ablegen, Speichern und Aufnehmen, auch bei Krabben', () => {
+    const source = createWorld();
+    const [id] = source.dropLoot({ x: 0, y: 1, z: 0 }, [{ itemId: 'crab', count: 3, spoilageSecondsRemaining: 20 }]);
+    const restored = createWorld();
+    restored.restore(source.serialize());
+    restored.advanceStoredFoodSpoilage(5);
+    expect(restored.collect(id!).loot).toEqual([{ itemId: 'crab', count: 3, spoilageSecondsRemaining: 15 }]);
+    source.dispose(); restored.dispose();
+  });
+  it('lässt Nahrung im verlorenen Rucksack und am Boden verderben', () => {
+    const world = createWorld();
+    const pack = world.createDeathPack({ x: 0, y: 1, z: 0 }, [{ itemId: 'mango', count: 2, spoilageSecondsRemaining: 5 }]);
+    const [drop] = world.dropLoot({ x: 3, y: 1, z: 0 }, [{ itemId: 'raw_fish', count: 1, spoilageSecondsRemaining: 5 }]);
+    expect(world.advanceStoredFoodSpoilage(10)).toBe(3);
+    expect(world.collect(pack).loot).toEqual([{ itemId: 'spoiled_food', count: 2 }]);
+    expect(world.collect(drop!).loot).toEqual([{ itemId: 'spoiled_food', count: 1, spoilageSecondsRemaining: undefined }]);
+    world.dispose();
+  });
+});

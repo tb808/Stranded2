@@ -13,6 +13,7 @@ export function advancePoison(health: number, remainingSeconds: number, deltaSec
   if (![health, remainingSeconds, deltaSeconds].every(Number.isFinite) || health < 0 || remainingSeconds < 0 || deltaSeconds < 0) {
     throw new RangeError('Poison values must be finite and non-negative.');
   }
+  if (remainingSeconds === 0 || deltaSeconds === 0 || health === 0) return { health, remainingSeconds };
   const activeSeconds = Math.min(deltaSeconds, remainingSeconds);
   const nextRemainingSeconds = Math.max(0, remainingSeconds - deltaSeconds);
   return {

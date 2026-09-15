@@ -24,7 +24,7 @@ export class IndexedDbSaveRepository<T> {
   private readonly storeName = "slots";
 
   public async open(): Promise<void> {
-    if (this.database || this.unavailableReason) return;
+    if (this.database) return;
     try {
       this.database = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open(this.databaseName, 1);
@@ -40,6 +40,7 @@ export class IndexedDbSaveRepository<T> {
         this.database?.close();
         this.database = null;
       };
+      this.unavailableReason = null;
     } catch (error) {
       this.unavailableReason = error instanceof Error ? error.message : String(error);
       throw error;
@@ -59,13 +60,21 @@ export class IndexedDbSaveRepository<T> {
   public async save(payload: T, day: number): Promise<SaveMeta> {
     await this.ensureOpen();
     const database = this.requireDatabase();
-    const previous = await this.readRecord("current");
     const meta: SaveMeta = { slotId: "current", savedAtUnixMs: Date.now(), day };
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(this.storeName, "readwrite");
       const store = transaction.objectStore(this.storeName);
-      if (previous) store.put({ ...previous, slotId: "backup" } satisfies StoredRecord<T>);
-      store.put({ ...meta, payload } satisfies StoredRecord<T>);
+      const previousRequest = store.get("current");
+      previousRequest.onsuccess = () => {
+        try {
+          const previous = previousRequest.result as StoredRecord<T> | undefined;
+          if (previous) store.put({ ...previous, slotId: "backup" } satisfies StoredRecord<T>);
+          store.put({ ...meta, payload } satisfies StoredRecord<T>);
+        } catch (error) {
+          transaction.abort();
+          reject(error);
+        }
+      };
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error ?? new Error("Spielstand konnte nicht geschrieben werden."));
       transaction.onabort = () => reject(transaction.error ?? new Error("Speichern wurde abgebrochen."));
@@ -124,7 +133,6 @@ export class IndexedDbSaveRepository<T> {
 
   private async ensureOpen(): Promise<void> {
     if (this.database) return;
-    if (this.unavailableReason) throw new Error(this.unavailableReason);
     await this.open();
   }
 

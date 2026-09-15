@@ -21,3 +21,8 @@ describe('Vergiftung', () => {
     expect(() => advancePoison(100, -1, 1)).toThrow(RangeError);
   });
 });
+
+it('schädigt gesunde Spieler und pausierte Simulationen nicht', () => {
+  expect(advancePoison(80, 0, 10)).toEqual({ health: 80, remainingSeconds: 0 });
+  expect(advancePoison(80, 10, 0)).toEqual({ health: 80, remainingSeconds: 10 });
+});

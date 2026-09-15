@@ -186,3 +186,24 @@ describe('transferItems', () => {
     expect(target.stacks).toEqual([{ itemId: 'cooked_fish', quantity: 2, spoilageSecondsRemaining: 75 }]);
   });
 });
+
+
+describe('Ausgewählte Inventarplätze', () => {
+  it('lagert genau den gewählten Stapel samt Frische um', () => {
+    const source = new Inventory(4, [
+      { itemId: 'mango', quantity: 2, spoilageSecondsRemaining: 500 },
+      { itemId: 'mango', quantity: 3, spoilageSecondsRemaining: 5, slotIndex: 3 },
+    ]);
+    const target = new Inventory(2);
+    expect(source.transferSlotTo(target, 3, 3)).toEqual({ transferred: 3, remainder: 0 });
+    expect(target.stacks).toEqual([{ itemId: 'mango', quantity: 3, spoilageSecondsRemaining: 5 }]);
+    expect(source.count('mango')).toBe(2);
+  });
+  it('lässt bei vollem Ziel den Ursprungsplatz unverändert', () => {
+    const source = new Inventory(4, [{ itemId: 'mango', quantity: 3, spoilageSecondsRemaining: 5, slotIndex: 3 }]);
+    const target = new Inventory(1, [{ itemId: 'stone', quantity: 1 }]);
+    const before = source.slots;
+    expect(source.transferSlotTo(target, 3, 3)).toEqual({ transferred: 0, remainder: 3 });
+    expect(source.slots).toEqual(before);
+  });
+});

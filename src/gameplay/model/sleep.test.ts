@@ -15,7 +15,7 @@ import {
   isSleepTime,
   sleepUntilMorning,
 } from './sleep';
-import { DAY_LENGTH_SECONDS, DAYLIGHT_DURATION_SECONDS, NIGHT_DURATION_SECONDS, createInitialSurvivalState, type SurvivalState } from './survival';
+import { DAY_LENGTH_SECONDS, DAYLIGHT_DURATION_SECONDS, NIGHT_DURATION_SECONDS, createInitialSurvivalState, SURVIVAL_RATES, type SurvivalState } from './survival';
 
 function elapsedAt(timeOfDayFraction: number): number {
   return getElapsedSecondsAtTimeOfDay(timeOfDayFraction);
@@ -84,11 +84,11 @@ describe('sleep helpers', () => {
       skippedSeconds: expect.any(Number),
       state: {
         health: 73,
-        hunger: 0,
-        thirst: 0,
+        hunger: expect.closeTo(Math.max(0, 6 - result.skippedSeconds * SURVIVAL_RATES.hungerDrainPerSecond)),
+        thirst: expect.closeTo(Math.max(0, 9 - result.skippedSeconds * SURVIVAL_RATES.thirstDrainPerSecond)),
         stamina: 100,
         maxStamina: 100,
-        oxygen: 64,
+        oxygen: 100,
         fatigue: 0,
         staminaRegenDelayRemaining: 0,
         dayElapsedSeconds: elapsedAt(getWakeTimeFraction(original.dayElapsedSeconds)),
@@ -105,4 +105,20 @@ describe('sleep helpers', () => {
     expect(result).toEqual({ slept: false, state: original, skippedSeconds: 0 });
     expect(result.state).not.toBe(original);
   });
+});
+
+it('lässt Hunger und Durst auch im Schlaf tödlich werden', () => {
+  const result = sleepUntilMorning(state({ health: 10, hunger: 0, thirst: 0, dayElapsedSeconds: elapsedAt(0.9) }));
+  expect(result.slept).toBe(true);
+  expect(result.state.health).toBe(0);
+});
+it('berechnet Brackwasserkrankheit nur für ihre verbleibende Dauer', () => {
+  const original = state({ hunger: 100, thirst: 100, dayElapsedSeconds: elapsedAt(0.9) });
+  const healthy = sleepUntilMorning(original);
+  const sick = sleepUntilMorning(original, 20);
+  expect(sick.state.health).toBeCloseTo(94);
+  expect(healthy.state.thirst - sick.state.thirst).toBeCloseTo(20 * SURVIVAL_RATES.thirstDrainPerSecond * 1.4);
+});
+it('lässt Tote nicht schlafen', () => {
+  expect(sleepUntilMorning(state({ health: 0, dayElapsedSeconds: elapsedAt(0.9) })).slept).toBe(false);
 });

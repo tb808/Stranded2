@@ -43,7 +43,6 @@ import {
   isNotebookAnimalId,
   weatherState,
   sleepUntilMorning,
-  transferItems,
   type MovementActivity,
   type NotebookAnimalId,
   type SurvivalState,
@@ -51,6 +50,7 @@ import {
   type WeatherState,
 } from "../gameplay/model";
 import { InputController, type InputSnapshot } from "../input/InputController";
+import { BRACKWATER_SICKNESS_DURATION_SECONDS, BRACKWATER_SICKNESS_DAMAGE_PER_SECOND, BRACKWATER_SICKNESS_THIRST_MULTIPLIER } from "../gameplay/model/sickness";
 import type { RapierPhysicsWorld } from "../physics/RapierPhysicsWorld";
 import { FirstPersonToolView } from "../rendering/FirstPersonToolView";
 import { IndexedDbSaveRepository } from "../save/IndexedDbSaveRepository";
@@ -159,9 +159,6 @@ const NOTEBOOK_ANIMALS: Record<NotebookAnimalId, { label: string; iconText: stri
 const BASE_INVENTORY_SLOTS = 24;
 const BACKPACK_INVENTORY_SLOTS = 36;
 const CAMPFIRE_WARMTH_RADIUS_METERS = 6;
-const BRACKWATER_SICKNESS_DURATION_SECONDS = 50;
-const BRACKWATER_SICKNESS_DAMAGE_PER_SECOND = 0.3;
-const BRACKWATER_SICKNESS_THIRST_MULTIPLIER = 2.4;
 
 type WarmthSource = "clothing" | "fire" | null;
 type FatigueLevel = "rested" | "tired" | "exhausted";
@@ -184,6 +181,7 @@ export class GameApp {
   private world: TropicalWorld | null = null;
   private state: AppState = "boot";
   private inventory = new Inventory();
+  private preferredHotbarItem: ItemId | null = null;
   private notebook = new ExpeditionNotebook();
   private survival: SurvivalState = createInitialSurvivalState();
   private settings: SettingsViewModel;
@@ -429,6 +427,7 @@ export class GameApp {
     if (!(await this.prepareWorld())) return;
     this.inventory = new Inventory();
     this.notebook = new ExpeditionNotebook();
+    this.preferredHotbarItem = null;
     this.survival = createInitialSurvivalState();
     this.toolDurability = {};
     this.equippedShirt = false;
@@ -592,6 +591,8 @@ export class GameApp {
         else this.attack();
       }
     }
+
+    if (this.state !== "playing" || this.panelOpen || this.sleeping) return;
 
     this.weather = this.weatherOverride
       ? weatherState(this.weatherOverride)
@@ -980,17 +981,20 @@ export class GameApp {
         this.ui.addToast({ text: "Für eine Räuchercharge brauchst du 3× rohes Fleisch und 1× Stock.", tone: "warning" });
       }
     } else if (building.type === "campfire") {
-      if (building.fireFuel <= 0) {
+      if (building.cookingProgress >= (building.cookingItem === "raw_meat" ? 30 : building.cookingItem === "raw_fish" ? 20 : 25)) {
+        const cookedItem = building.cookingItem === "raw_meat" ? "cooked_meat" : building.cookingItem === "raw_fish" ? "cooked_fish" : "cooked_crab";
+        if (this.inventory.add(cookedItem, 1).added === 0) {
+          this.ui.addToast({ text: "Dein Rucksack ist voll. Die fertige Nahrung bleibt auf dem Grill.", tone: "warning" });
+        } else {
+          building.cookingProgress = 0;
+          delete building.cookingItem;
+          this.ui.addToast({ text: `${ITEM_CATALOG[cookedItem].label} vom Feuer genommen.`, tone: "success" });
+        }
+      } else if (building.fireFuel <= 0) {
         if (this.inventory.remove("stick", 1).removed === 1) {
           building.fireFuel += 60;
           this.ui.addToast({ text: "Ein Stock hält das Feuer weitere 60 Sekunden am Brennen.", tone: "success" });
         } else this.ui.addToast({ text: "Das Feuer ist aus. Du brauchst einen Stock.", tone: "warning" });
-      } else if (building.cookingProgress >= (building.cookingItem === "raw_meat" ? 30 : building.cookingItem === "raw_fish" ? 20 : 25)) {
-        const cookedItem = building.cookingItem === "raw_meat" ? "cooked_meat" : building.cookingItem === "raw_fish" ? "cooked_fish" : "cooked_crab";
-        building.cookingProgress = 0;
-        delete building.cookingItem;
-        this.inventory.add(cookedItem, 1);
-        this.ui.addToast({ text: cookedItem === "cooked_meat" ? "Gegrilltes Fleisch vom Feuer genommen." : cookedItem === "cooked_fish" ? "Gegrillten Fisch vom Feuer genommen." : "Gekochte Krabbe vom Feuer genommen.", tone: "success" });
       } else if (building.cookingProgress > 0) {
         const duration = building.cookingItem === "raw_meat" ? 30 : building.cookingItem === "raw_fish" ? 20 : 25;
         const label = building.cookingItem === "raw_meat" ? "Das Fleisch" : building.cookingItem === "raw_fish" ? "Der Fisch" : "Die Krabbe";
@@ -1035,7 +1039,7 @@ export class GameApp {
 
   private async sleepInBed(): Promise<void> {
     if (this.sleeping) return;
-    const result = sleepUntilMorning(this.survival);
+    const result = sleepUntilMorning(this.survival, this.brackwaterSicknessSeconds);
     if (!result.slept) {
       this.ui.addToast({ text: "Du kannst zwischen 18:00 und 03:00 Uhr schlafen.", tone: "info" });
       return;
@@ -1048,10 +1052,13 @@ export class GameApp {
     await this.waitForSleepTransition(reducedMotion ? 160 : 760);
 
     this.survival = result.state;
+    this.brackwaterSicknessSeconds = Math.max(0, this.brackwaterSicknessSeconds - result.skippedSeconds);
     this.previousFatigueLevel = "rested";
     this.advancePoisonCondition(result.skippedSeconds);
     this.advanceBleedingCondition(result.skippedSeconds);
     this.advanceFoodSpoilage(result.skippedSeconds);
+    this.world?.advanceBuildingProduction(result.skippedSeconds, this.weather);
+    this.simulationTime += result.skippedSeconds;
     this.day += 1;
     this.weather = this.weatherOverride
       ? weatherState(this.weatherOverride)
@@ -1062,6 +1069,10 @@ export class GameApp {
     await this.waitForSleepTransition(reducedMotion ? 300 : 1_040);
     this.sleepTransition.classList.remove("sleep-transition--active", "sleep-transition--reduced");
     this.sleeping = false;
+    if (this.survival.health <= 0) {
+      this.handleDeath();
+      return;
+    }
     const wakeMinutes = Math.round(getTimeOfDayFraction(this.survival.dayElapsedSeconds) * 24 * 60) % (24 * 60);
     const wakeTime = `${String(Math.floor(wakeMinutes / 60)).padStart(2, "0")}:${String(wakeMinutes % 60).padStart(2, "0")}`;
     this.ui.addToast({ text: `Du wachst um ${wakeTime} Uhr vollständig erholt auf.`, tone: "success" });
@@ -1158,15 +1169,15 @@ export class GameApp {
     }
     let crafted = 0;
     for (let index = 0; index < count; index += 1) {
-      if (!this.inventory.consume(recipe.ingredients)) break;
+      const candidate = this.inventory.clone();
+      if (!candidate.consume(recipe.ingredients)) break;
       const outputItemId = recipe.output.kind === "buildable" ? recipe.output.buildableId : recipe.output.itemId;
-      const result = this.inventory.add(outputItemId, recipe.output.quantity);
-      if (result.remainder > 0) {
-        this.addLoot(recipe.ingredients, false);
-        break;
-      }
+      const hadTool = this.inventory.count(outputItemId) > 0;
+      const result = candidate.add(outputItemId, recipe.output.quantity);
+      if (result.remainder > 0) break;
+      this.inventory = candidate;
       const maxDurability = getMaxDurability(outputItemId);
-      if (maxDurability) this.toolDurability[outputItemId] = maxDurability;
+      if (maxDurability && (!hadTool || this.toolDurability[outputItemId] === undefined)) this.toolDurability[outputItemId] = maxDurability;
       crafted += 1;
     }
     this.ui.addToast({ text: crafted > 0 ? `${crafted}× ${recipe.label} hergestellt.` : "Nicht genug Material oder Inventarplatz.", tone: crafted > 0 ? "success" : "warning" });
@@ -1217,8 +1228,9 @@ export class GameApp {
     if (!world || !this.selectedBuild) return;
     const inventoryItemId = this.placementInventoryItemId;
     const storedWorkbench = inventoryItemId === "portable_workbench";
-    if (!this.buildPlacementValid) {
-      this.ui.addToast({ text: this.buildPlacementReason || "Hier kann nicht gebaut werden.", tone: "warning" });
+    const placement = world.getPlacementPosition(this.camera, this.selectedBuild, this.buildRotation);
+    if (!placement.valid || (!storedWorkbench && this.inventory.count("building_hammer") === 0)) {
+      this.ui.addToast({ text: placement.reason || "Zum Platzieren brauchst du einen Bauhammer.", tone: "warning" });
       return;
     }
     if (!inventoryItemId || this.inventory.remove(inventoryItemId, 1).removed !== 1) {
@@ -1226,7 +1238,6 @@ export class GameApp {
       this.cancelBuild();
       return;
     }
-    const placement = world.getPlacementPosition(this.camera, this.selectedBuild, this.buildRotation);
     const placed = this.selectedBuild === "raft_base"
       ? world.createRaftBase(placement.position, placement.rotationY) !== null
       : this.selectedBuild === "raft_deck"
@@ -1287,28 +1298,28 @@ export class GameApp {
       this.ui.closePanel();
       this.beginBuildPlacement("workbench", "portable_workbench");
     } else if (stack.itemId === "coconut") {
-      this.inventory.remove("coconut", 1);
-      this.inventory.add(ITEM_CATALOG.coconut.useByproduct.itemId, ITEM_CATALOG.coconut.useByproduct.quantity);
+      this.inventory.extractSlot(index, 1);
+      this.addLoot([ITEM_CATALOG.coconut.useByproduct], false);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 5), thirst: Math.min(100, this.survival.thirst + 18) });
       this.ui.addToast({ text: "Kokosnuss getrunken und gegessen.", tone: "success" });
     } else if (stack.itemId === "mango") {
-      this.inventory.remove("mango", 1);
+      this.inventory.extractSlot(index, 1);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 18), thirst: Math.min(100, this.survival.thirst + 10) });
       this.ui.addToast({ text: "Saftige Mango gegessen.", tone: "success" });
     } else if (stack.itemId === "cooked_crab") {
-      this.inventory.remove("cooked_crab", 1);
+      this.inventory.extractSlot(index, 1);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 28) });
       this.ui.addToast({ text: "Gekochte Krabbe gegessen.", tone: "success" });
     } else if (stack.itemId === "cooked_meat") {
-      this.inventory.remove("cooked_meat", 1);
+      this.inventory.extractSlot(index, 1);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 42) });
       this.ui.addToast({ text: "Gegrilltes Fleisch gegessen.", tone: "success" });
     } else if (stack.itemId === "smoked_meat") {
-      this.inventory.remove("smoked_meat", 1);
+      this.inventory.extractSlot(index, 1);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 55) });
       this.ui.addToast({ text: "Kräftiges Räucherfleisch gegessen.", tone: "success" });
     } else if (stack.itemId === "cooked_fish") {
-      this.inventory.remove("cooked_fish", 1);
+      this.inventory.extractSlot(index, 1);
       this.patchVitals({ hunger: Math.min(100, this.survival.hunger + 34) });
       this.ui.addToast({ text: "Gegrillten Fisch gegessen.", tone: "success" });
     } else if (stack.itemId === "spoiled_food") {
@@ -1317,7 +1328,7 @@ export class GameApp {
       if (this.poisonSecondsRemaining <= 0) {
         this.ui.addToast({ text: "Du bist nicht vergiftet und brauchst kein Heilkraut.", tone: "info" });
       } else {
-        this.inventory.remove("healing_herb", 1);
+        this.inventory.extractSlot(index, 1);
         this.poisonSecondsRemaining = 0;
         this.poisonCausedDeath = false;
         this.ui.addToast({ text: "Das Mangroven-Heilkraut neutralisiert das Schlangengift.", tone: "success", durationMs: 6_000 });
@@ -1326,7 +1337,7 @@ export class GameApp {
       if (this.poisonSecondsRemaining <= 0) {
         this.ui.addToast({ text: "Du bist nicht vergiftet und brauchst keinen Kräuterverband.", tone: "info" });
       } else {
-        this.inventory.remove("bandage", 1);
+        this.inventory.extractSlot(index, 1);
         this.poisonSecondsRemaining = 0;
         this.poisonCausedDeath = false;
         this.patchVitals({ health: Math.min(100, this.survival.health + 20) });
@@ -1336,7 +1347,7 @@ export class GameApp {
       if (!this.isBleeding) {
         this.ui.addToast({ text: "Du blutest nicht und brauchst keinen einfachen Verband.", tone: "info" });
       } else {
-        this.inventory.remove("simple_bandage", 1);
+        this.inventory.extractSlot(index, 1);
         this.isBleeding = false;
         this.bleedingCausedDeath = false;
         this.patchVitals({ health: Math.min(100, this.survival.health + 15) });
@@ -1346,7 +1357,7 @@ export class GameApp {
       if (this.brackwaterSicknessSeconds <= 0 && this.poisonSecondsRemaining <= 0) {
         this.ui.addToast({ text: "Du bist weder krank noch vergiftet.", tone: "info" });
       } else {
-        this.inventory.remove("herbal_antidote", 1);
+        this.inventory.extractSlot(index, 1);
         this.brackwaterSicknessSeconds = 0;
         this.poisonSecondsRemaining = 0;
         this.poisonCausedDeath = false;
@@ -1356,7 +1367,7 @@ export class GameApp {
       if (this.survival.health >= 100 && this.survival.stamina >= this.survival.maxStamina) {
         this.ui.addToast({ text: "Du bist bereits vollständig erholt.", tone: "info" });
       } else {
-        this.inventory.remove("flower_tonic", 1);
+        this.inventory.extractSlot(index, 1);
         this.patchVitals({
           health: Math.min(100, this.survival.health + 30),
           stamina: this.survival.maxStamina,
@@ -1377,7 +1388,7 @@ export class GameApp {
         this.ui.addToast({ text: "Kein beschädigtes Werkzeug zum Schärfen gefunden.", tone: "info" });
       } else {
         const max = getMaxDurability(tool)!;
-        this.inventory.remove("whetstone", 1);
+        this.inventory.extractSlot(index, 1);
         this.toolDurability[tool] = Math.min(max, (this.toolDurability[tool] ?? max) + 35);
         this.ui.addToast({ text: `${ITEM_CATALOG[tool].label} um 35 Haltbarkeit repariert.`, tone: "success" });
       }
@@ -1417,6 +1428,12 @@ export class GameApp {
         this.equippedBackpack = true;
         this.ui.addToast({ text: "Großen Rucksack angelegt: 36 Inventarplätze verfügbar.", tone: "success" });
       }
+    } else if (ITEM_CATALOG[stack.itemId].category === "tool") {
+      this.preferredHotbarItem = stack.itemId;
+      this.selectedHotbarIndex = 0;
+      this.cancelBuild();
+      this.ui.closePanel();
+      this.ui.addToast({ text: `${ITEM_CATALOG[stack.itemId].label} ausgewählt (Schnellzugriff 1).`, tone: "success" });
     } else if (stack.itemId === "crab" || stack.itemId === "raw_meat" || stack.itemId === "raw_fish") this.ui.addToast({ text: "Rohes Essen muss zuerst am Lagerfeuer gegart werden.", tone: "warning" });
     else this.ui.addToast({ text: `${ITEM_CATALOG[stack.itemId].label} kann nicht direkt benutzt werden.`, tone: "info" });
     this.refreshUi();
@@ -1437,9 +1454,9 @@ export class GameApp {
       this.ui.addToast({ text: "Lege diese Ausrüstung zuerst über „Benutzen“ ab.", tone: "warning" });
       return;
     }
-    this.inventory.remove(stack.itemId, stack.quantity);
+    this.inventory.extractSlot(index, stack.quantity);
     const forward = new Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    this.world.dropLoot({ x: position.x + forward.x * 1.5, y: position.y, z: position.z + forward.z * 1.5 }, [{ itemId: stack.itemId, count: stack.quantity }]);
+    this.world.dropLoot({ x: position.x + forward.x * 1.5, y: position.y, z: position.z + forward.z * 1.5 }, [{ itemId: stack.itemId, count: stack.quantity, spoilageSecondsRemaining: stack.spoilageSecondsRemaining }]);
     this.ui.addToast({ text: `${ITEM_CATALOG[stack.itemId].label} abgelegt.`, tone: "info" });
     this.refreshUi();
   }
@@ -1455,7 +1472,7 @@ export class GameApp {
     }
 
     const chestInventory = new Inventory(CHEST_STORAGE_SLOTS, building.storedItems ?? []);
-    const result = transferItems(this.inventory, chestInventory, stack.itemId, stack.quantity);
+    const result = this.inventory.transferSlotTo(chestInventory, index, stack.quantity);
     building.storedItems = [...chestInventory.stacks];
     if (result.transferred === 0) {
       this.ui.addToast({ text: "Die Truhe ist voll.", tone: "warning" });
@@ -1477,7 +1494,7 @@ export class GameApp {
     const chestInventory = new Inventory(CHEST_STORAGE_SLOTS, building.storedItems ?? []);
     const stack = chestInventory.slots[index];
     if (!stack) return;
-    const result = transferItems(chestInventory, this.inventory, stack.itemId, stack.quantity);
+    const result = chestInventory.transferSlotTo(this.inventory, index, stack.quantity);
     building.storedItems = [...chestInventory.stacks];
     if (result.transferred === 0) {
       this.ui.addToast({ text: "Dein Rucksack ist voll.", tone: "warning" });
@@ -1492,15 +1509,15 @@ export class GameApp {
   }
 
   private addLoot(
-    loot: readonly LootStack[] | readonly { itemId: ItemId; quantity: number }[],
+    loot: readonly LootStack[] | readonly { itemId: ItemId; quantity: number; spoilageSecondsRemaining?: number }[],
     recordDiscovery = true,
   ): void {
     for (const entry of loot) {
       const count = "count" in entry ? entry.count : entry.quantity;
-      const result = this.inventory.add(entry.itemId, count);
+      const result = this.inventory.add(entry.itemId, count, entry.spoilageSecondsRemaining);
       if (result.remainder > 0) {
         const position = this.physics?.getPlayerPosition();
-        if (position) this.world?.dropLoot(position, [{ itemId: entry.itemId, count: result.remainder }]);
+        if (position) this.world?.dropLoot(position, [{ itemId: entry.itemId, count: result.remainder, spoilageSecondsRemaining: entry.spoilageSecondsRemaining }]);
         this.ui.addToast({ text: `Inventar voll: ${result.remainder}× ${ITEM_CATALOG[entry.itemId].label} liegen vor dir.`, tone: "warning" });
       }
     }
@@ -1547,7 +1564,7 @@ export class GameApp {
   }
 
   private advancePoisonCondition(deltaSeconds: number): void {
-    if (this.poisonSecondsRemaining <= 0 || deltaSeconds <= 0) return;
+    if (this.poisonSecondsRemaining <= 0 || deltaSeconds <= 0 || this.survival.health <= 0) return;
     const result = advancePoison(this.survival.health, this.poisonSecondsRemaining, deltaSeconds);
     this.poisonSecondsRemaining = result.remainingSeconds;
     this.poisonCausedDeath = result.health <= 0;
@@ -1592,9 +1609,11 @@ export class GameApp {
     this.onRaft = false;
     this.mapOpen = false;
     physics.setPlayerEnabled(false);
-    const loot = this.inventory.stacks.map((stack) => ({ itemId: stack.itemId, count: stack.quantity }));
+    const loot = this.inventory.stacks.map((stack) => ({ itemId: stack.itemId, count: stack.quantity, spoilageSecondsRemaining: stack.spoilageSecondsRemaining }));
     if (loot.length > 0) world.createDeathPack(physics.getPlayerPosition(), loot);
     this.inventory = new Inventory();
+    this.preferredHotbarItem = null;
+    this.cancelBuild();
     this.equippedShirt = false;
     this.equippedBackpack = false;
     this.isCold = false;
@@ -1630,7 +1649,7 @@ export class GameApp {
 
   private respawn(): void {
     if (!this.physics) return;
-    this.survival = { ...createInitialSurvivalState(), hunger: 60, thirst: 60 };
+    this.survival = { ...createInitialSurvivalState(), hunger: 60, thirst: 60, dayElapsedSeconds: this.survival.dayElapsedSeconds };
     this.isCold = false;
     this.previousCold = null;
     this.warmthSource = null;
@@ -1680,7 +1699,7 @@ export class GameApp {
   }
 
   private async pauseGame(): Promise<void> {
-    if (this.state !== "playing") return;
+    if (this.state !== "playing" || this.sleeping) return;
     this.state = "paused";
     this.exitPointerLock();
     const pauseModel = (saveStatus: "saved" | "saving" | "unavailable") => ({
@@ -1707,6 +1726,10 @@ export class GameApp {
   }
 
   private async returnToMenu(): Promise<void> {
+    if (this.state === "dead") {
+      await this.finishReturnToMenu();
+      return;
+    }
     this.pendingSaveAction = {
       onSaved: () => this.finishReturnToMenu(),
       onSkipped: () => this.finishReturnToMenu(),
@@ -1730,7 +1753,7 @@ export class GameApp {
   }
 
   private async saveGame(showToast = true): Promise<boolean> {
-    if (!this.physics || !this.world || this.state === "loading") return false;
+    if (!this.physics || !this.world || this.state === "loading" || this.state === "dead" || this.sleeping || this.survival.health <= 0) return false;
     try {
       const payload = this.createSave();
       await this.saveRepository.save(payload, this.day);
@@ -1799,6 +1822,7 @@ export class GameApp {
     this.mapOpen = false;
     this.activeChestId = null;
     this.notebook = new ExpeditionNotebook(save.notebook);
+    this.preferredHotbarItem = null;
     this.physics.setPlayerEnabled(true);
     this.equippedShirt = Boolean(save.player.equipment?.wovenShirt);
     this.equippedBackpack = Boolean(save.player.equipment?.backpack);
@@ -1904,6 +1928,7 @@ export class GameApp {
   }
 
   private promptForTarget(id: string, kind: string, label: string): { key: string; action: string; target?: string } {
+    if (this.world?.isLooseLoot(id)) return { key: "E", action: "Aufnehmen", target: label };
     if (kind === "palm" || kind === "tree" || kind === "crab" || kind === "wild_boar" || kind === "chicken" || kind === "turtle" || kind === "bird" || kind === "crocodile" || kind === "shark") return { key: "LMB", action: "Werkzeug benutzen", target: label };
     if (kind === "raft") {
       const raft = this.world?.getRaft();
@@ -1995,8 +2020,8 @@ export class GameApp {
                           ? "Karte zur fernen Rieseninsel im Nordosten mit Smaragdsee und Elias’ Lager."
                       : ITEM_CATALOG[stack.itemId].category === "tool"
                         ? stack.itemId === "shovel"
-                          ? "Zum Freilegen vergrabener Truhen im Sand."
-                          : "Werkzeug für Sammeln, Jagd oder Bauen."
+                          ? "Benutzen, um die Schaufel auszuwählen und vergrabene Truhen freizulegen."
+                          : "Benutzen, um dieses Werkzeug im Schnellzugriff auszuwählen."
                         : "Rohstoff für Herstellungsrezepte.",
                 iconText: ITEM_ICONS[stack.itemId] ?? "•",
                 quantity: stack.quantity,
@@ -2175,7 +2200,10 @@ export class GameApp {
 
   private hotbarItems(): ItemId[] {
     const priorities: ItemId[] = ["obsidian_knife", "stone_knife", "stone_axe", "wooden_spear", "shovel", "building_hammer", "fishing_rod", "climbing_kit", "paddle", "simple_bandage", "bandage", "herbal_antidote", "raw_fish", "cooked_fish", "raw_meat", "cooked_meat", "smoked_meat", "crab", "cooked_crab", "coconut"];
-    const result = priorities.filter((id) => this.inventory.count(id) > 0).slice(0, 4);
+    const ordered = this.preferredHotbarItem
+      ? [this.preferredHotbarItem, ...priorities.filter((id) => id !== this.preferredHotbarItem)]
+      : priorities;
+    const result = ordered.filter((id) => this.inventory.count(id) > 0).slice(0, 4);
     for (const stack of this.inventory.stacks) {
       if (result.length >= 4) break;
       if (ITEM_CATALOG[stack.itemId].category === "equipment" || ITEM_CATALOG[stack.itemId].category === "buildable") continue;
@@ -2252,6 +2280,10 @@ export class GameApp {
   }
 
   private handlePanelChanged(panel: UiPanel | null): void {
+    if (this.sleeping && panel) {
+      this.ui.closePanel();
+      return;
+    }
     if (panel !== "storage" && this.activeChestId) {
       this.activeChestId = null;
       if (this.state === "playing") void this.saveGame(false);

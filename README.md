@@ -67,7 +67,7 @@ Zu den baubaren Survival-Objekten gehören Lagerfeuer, Schutzdach, Bett, Truhe, 
 
 Regen und Gewitter kühlen die Spielfigur aus. Ohne angezogenes Schutzhemd oder ein brennendes Lagerfeuer in höchstens sechs Metern Entfernung sinkt die maximale Ausdauer langsam bis auf 35; in Wärme erholt sie sich wieder.
 
-Ein vollständiger Zeitzyklus dauert sieben Echtzeit-Minuten: fünf Minuten Tageslicht und zwei Minuten Nacht.
+Ein vollständiger Zeitzyklus dauert zehn Echtzeit-Minuten: sieben Minuten Tageslicht und drei Minuten Nacht.
 
 Die Archipelkarte wird mit `M` hervorgeholt und mit einem weiteren Druck auf `M` wieder eingesteckt. Sie zeigt zunächst vierzehn Inseln; nach dem Kartenfund in der Schatztruhe kommt die ferne Rieseninsel hinzu; die drei kleinen Außeninseln markieren den westlichen, nördlichen und südöstlichen Rand. Die aktuelle Insel wird hervorgehoben; ein rot-weißer Pfeil markiert die genaue Spielerposition und dreht sich mit der Blickrichtung. Auch auf offenem Meer bleibt der Pfeil am Kartenrand sichtbar.
 
@@ -92,6 +92,7 @@ Vite startet die Entwicklungsversion standardmäßig unter `http://127.0.0.1:417
 - Beim Schwimmen folgt `W/S` der Blickrichtung: nach oben schauen lässt dich aufsteigen, nach unten schauen lässt dich abtauchen
 - `E`: aufnehmen, benutzen, Floß betreten/verlassen
 - `F`: Werkbank benutzen und vollständiges Herstellungsmenü öffnen
+- Werkzeuge im Inventar über „Benutzen“ auswählen; das gewählte Werkzeug erscheint auf Schnellzugriff 1
 - `1`–`4`: Schnellzugriff, `Tab`: Inventar, `C`: Crafting, `B`: Bauen
 - `M`: Karte hervorholen oder wieder einstecken
 - `N`: Expeditions-Notizbuch öffnen oder schließen

@@ -169,6 +169,27 @@ export class Inventory {
     return extracted;
   }
 
+  extractSlot(slotIndex: number, quantity: number): ItemStack | undefined {
+    assertQuantity(quantity, 'Extract quantity');
+    if (!Number.isSafeInteger(slotIndex) || slotIndex < 0 || slotIndex >= this.maxSlots) {
+      throw new RangeError('Inventory slot index is outside inventory capacity.');
+    }
+    const stack = this.slotList[slotIndex];
+    if (!stack || quantity === 0) return undefined;
+    const amount = Math.min(quantity, stack.quantity);
+    this.slotList[slotIndex] = amount === stack.quantity ? undefined : { ...stack, quantity: stack.quantity - amount };
+    return { ...stack, quantity: amount };
+  }
+
+  transferSlotTo(target: Inventory, slotIndex: number, quantity: number): TransferResult {
+    assertQuantity(quantity, 'Transfer quantity');
+    const stack = this.slotList[slotIndex];
+    if (!stack || target === this || quantity === 0) return { transferred: 0, remainder: quantity };
+    const result = target.add(stack.itemId, Math.min(quantity, stack.quantity), stack.spoilageSecondsRemaining);
+    this.extractSlot(slotIndex, result.added);
+    return { transferred: result.added, remainder: quantity - result.added };
+  }
+
   advanceSpoilage(deltaSeconds: number): number {
     if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) throw new RangeError('Spoilage time must be finite and non-negative.');
     if (deltaSeconds === 0) return 0;

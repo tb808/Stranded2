@@ -319,6 +319,7 @@ export class UiController {
       return;
     }
     const panelByCode: Partial<Record<string, UiPanel>> = {
+      Tab: 'inventory',
       KeyI: 'inventory',
       KeyC: 'crafting',
       KeyB: 'build',

@@ -106,7 +106,7 @@ export class InputController {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     const action = KEY_BINDINGS[event.code];
-    if (!action || !this.enabled) return;
+    if (!action || !this.enabled || event.defaultPrevented) return;
     if (!event.repeat) this.pressed.add(action);
     this.held.add(action);
     if (["Space", "Tab"].includes(event.code)) event.preventDefault();
