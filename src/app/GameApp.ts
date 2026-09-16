@@ -43,7 +43,7 @@ import {
   getWeatherState,
   isNotebookAnimalId,
   weatherState,
-  sleepUntilMorning,
+  sleepForEightHours,
   type MovementActivity,
   type NotebookAnimalId,
   type SurvivalState,
@@ -1043,15 +1043,13 @@ export class GameApp {
     if (this.sleeping) return;
     const position = this.physics?.getPlayerPosition();
     const volcanicHeat = position ? this.world?.getVolcanicHeatLevel(position) ?? 0 : 0;
-    const result = sleepUntilMorning(
+    const sleepStartDayElapsed = this.survival.dayElapsedSeconds;
+    const result = sleepForEightHours(
       this.survival,
       this.brackwaterSicknessSeconds,
       this.poisonSecondsRemaining > 0 || this.isBleeding || this.isCold || volcanicHeat > 0,
     );
-    if (!result.slept) {
-      this.ui.addToast({ text: "Du kannst zwischen 18:00 und 03:00 Uhr schlafen.", tone: "info" });
-      return;
-    }
+    if (!result.slept) return;
 
     this.sleeping = true;
     const reducedMotion = this.settings.reducedMotion;
@@ -1067,7 +1065,7 @@ export class GameApp {
     this.advanceFoodSpoilage(result.skippedSeconds);
     this.world?.advanceBuildingProduction(result.skippedSeconds, this.weather);
     this.simulationTime += result.skippedSeconds;
-    this.day += 1;
+    this.day += Math.floor((sleepStartDayElapsed + result.skippedSeconds) / DAY_LENGTH_SECONDS);
     this.weather = this.weatherOverride
       ? weatherState(this.weatherOverride)
       : getWeatherState(this.day, this.survival.dayElapsedSeconds);
@@ -1083,7 +1081,7 @@ export class GameApp {
     }
     const wakeMinutes = Math.round(getTimeOfDayFraction(this.survival.dayElapsedSeconds) * 24 * 60) % (24 * 60);
     const wakeTime = `${String(Math.floor(wakeMinutes / 60)).padStart(2, "0")}:${String(wakeMinutes % 60).padStart(2, "0")}`;
-    this.ui.addToast({ text: `Du wachst um ${wakeTime} Uhr vollständig erholt auf.`, tone: "success" });
+    this.ui.addToast({ text: `Nach acht Stunden Schlaf wachst du um ${wakeTime} Uhr vollständig erholt auf.`, tone: "success" });
     void this.saveGame(false);
   }
 

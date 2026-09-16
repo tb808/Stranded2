@@ -10,10 +10,8 @@ import { BRACKWATER_SICKNESS_DAMAGE_PER_SECOND, BRACKWATER_SICKNESS_THIRST_MULTI
 export const DAY_START_FRACTION = 0.2;
 export const NIGHT_END_FRACTION = 0.2;
 export const NIGHT_START_FRACTION = 0.76;
-export const SLEEP_START_FRACTION = 18 / 24;
-export const SLEEP_END_FRACTION = 3 / 24;
-export const EARLIEST_WAKE_FRACTION = 6 / 24;
-export const LATEST_WAKE_FRACTION = 12 / 24;
+export const SLEEP_DURATION_HOURS = 8;
+export const SLEEP_DURATION_FRACTION = SLEEP_DURATION_HOURS / 24;
 
 export interface SleepResult {
   readonly slept: boolean;
@@ -57,27 +55,14 @@ export function getElapsedSecondsAtTimeOfDay(timeOfDayFraction: number): number 
     (nightClockFraction / (1 - NIGHT_START_FRACTION + NIGHT_END_FRACTION)) * NIGHT_DURATION_SECONDS;
 }
 
-export function isSleepTime(dayElapsedSeconds: number): boolean {
-  const timeOfDay = getTimeOfDayFraction(dayElapsedSeconds);
-  return timeOfDay >= SLEEP_START_FRACTION || timeOfDay <= SLEEP_END_FRACTION;
-}
-
 export function getWakeTimeFraction(dayElapsedSeconds: number): number {
   const bedtime = getTimeOfDayFraction(dayElapsedSeconds);
-  if (bedtime < SLEEP_START_FRACTION && bedtime > SLEEP_END_FRACTION) {
-    throw new RangeError('The current time is outside the sleep window.');
-  }
-  const hoursAfterSleepStart = bedtime >= SLEEP_START_FRACTION
-    ? bedtime - SLEEP_START_FRACTION
-    : 1 - SLEEP_START_FRACTION + bedtime;
-  const sleepWindowLength = 1 - SLEEP_START_FRACTION + SLEEP_END_FRACTION;
-  const bedtimeProgress = hoursAfterSleepStart / sleepWindowLength;
-  return EARLIEST_WAKE_FRACTION + bedtimeProgress * (LATEST_WAKE_FRACTION - EARLIEST_WAKE_FRACTION);
+  return (bedtime + SLEEP_DURATION_FRACTION) % 1;
 }
 
-export function sleepUntilMorning(state: SurvivalState, sicknessSeconds = 0, hasHarmfulCondition = false): SleepResult {
+export function sleepForEightHours(state: SurvivalState, sicknessSeconds = 0, hasHarmfulCondition = false): SleepResult {
   if (!Number.isFinite(sicknessSeconds) || sicknessSeconds < 0) throw new RangeError('Sickness time must be finite and non-negative.');
-  if (state.health <= 0 || !isSleepTime(state.dayElapsedSeconds)) {
+  if (state.health <= 0) {
     return { slept: false, state: { ...state }, skippedSeconds: 0 };
   }
 

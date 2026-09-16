@@ -35,7 +35,7 @@ export const SURVIVAL_RATES = {
   staminaRegenDelaySeconds: 1,
   coldMaxStaminaDrainPerSecond: 0.08,
   warmMaxStaminaRecoveryPerSecond: 0.15,
-  fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
+  fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2.5),
   exhaustedHealthDamagePerSecond: 0.08,
   healthRegenerationPerSecond: 0.1,
 } as const;

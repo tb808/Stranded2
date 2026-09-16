@@ -2,18 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DAY_START_FRACTION,
-  EARLIEST_WAKE_FRACTION,
-  LATEST_WAKE_FRACTION,
   NIGHT_END_FRACTION,
   NIGHT_START_FRACTION,
-  SLEEP_END_FRACTION,
-  SLEEP_START_FRACTION,
+  SLEEP_DURATION_FRACTION,
+  SLEEP_DURATION_HOURS,
   getElapsedSecondsAtTimeOfDay,
   getTimeOfDayFraction,
   getWakeTimeFraction,
   isNightTime,
-  isSleepTime,
-  sleepUntilMorning,
+  sleepForEightHours,
 } from './sleep';
 import { DAY_LENGTH_SECONDS, DAYLIGHT_DURATION_SECONDS, NIGHT_DURATION_SECONDS, createInitialSurvivalState, SURVIVAL_RATES, type SurvivalState } from './survival';
 
@@ -49,23 +46,15 @@ describe('sleep helpers', () => {
     expect(isNightTime(elapsedAt(0.5))).toBe(false);
   });
 
-  it('erlaubt Schlaf von 18:00 bis einschließlich 03:00', () => {
-    expect(isSleepTime(elapsedAt(SLEEP_START_FRACTION))).toBe(true);
-    expect(isSleepTime(elapsedAt(0.99))).toBe(true);
-    expect(isSleepTime(elapsedAt(0))).toBe(true);
-    expect(isSleepTime(elapsedAt(SLEEP_END_FRACTION))).toBe(true);
-    expect(isSleepTime(elapsedAt(SLEEP_START_FRACTION - 1 / 1_440))).toBe(false);
-    expect(isSleepTime(elapsedAt(SLEEP_END_FRACTION + 1 / 1_440))).toBe(false);
+  it('erlaubt Schlaf zu jeder Tageszeit und setzt die Uhr exakt acht Stunden vor', () => {
+    expect(SLEEP_DURATION_HOURS).toBe(8);
+    expect(SLEEP_DURATION_FRACTION).toBe(1 / 3);
+    for (const bedtime of [0, 6 / 24, 12 / 24, 18 / 24, 23 / 24]) {
+      expect(getWakeTimeFraction(elapsedAt(bedtime))).toBeCloseTo((bedtime + 8 / 24) % 1);
+    }
   });
 
-  it('berechnet abhängig von der Einschlafzeit eine Aufwachzeit zwischen 06:00 und 12:00', () => {
-    expect(getWakeTimeFraction(elapsedAt(SLEEP_START_FRACTION))).toBeCloseTo(EARLIEST_WAKE_FRACTION);
-    expect(getWakeTimeFraction(elapsedAt(21 / 24))).toBeCloseTo(8 / 24);
-    expect(getWakeTimeFraction(elapsedAt(0))).toBeCloseTo(10 / 24);
-    expect(getWakeTimeFraction(elapsedAt(SLEEP_END_FRACTION))).toBeCloseTo(LATEST_WAKE_FRACTION);
-  });
-
-  it('skips a night to morning and applies the sleep costs without mutating input', () => {
+  it('überspringt acht Spielstunden und wendet Schlafkosten an, ohne die Eingabe zu verändern', () => {
     const original = state({
       health: 73,
       hunger: 6,
@@ -77,7 +66,7 @@ describe('sleep helpers', () => {
       dayElapsedSeconds: elapsedAt(0.95),
     });
 
-    const result = sleepUntilMorning(original);
+    const result = sleepForEightHours(original);
 
     expect(result).toEqual({
       slept: true,
@@ -98,27 +87,28 @@ describe('sleep helpers', () => {
     expect(original.dayElapsedSeconds).toBe(elapsedAt(0.95));
   });
 
-  it('returns an unchanged copy during daytime', () => {
+  it('erlaubt auch tagsüber acht Stunden Schlaf', () => {
     const original = state({ hunger: 48, thirst: 37, stamina: 44, dayElapsedSeconds: elapsedAt(0.5) });
-    const result = sleepUntilMorning(original);
+    const result = sleepForEightHours(original);
 
-    expect(result).toEqual({ slept: false, state: original, skippedSeconds: 0 });
-    expect(result.state).not.toBe(original);
+    expect(result.slept).toBe(true);
+    expect(getTimeOfDayFraction(result.state.dayElapsedSeconds)).toBeCloseTo(20 / 24);
+    expect(result.state.fatigue).toBe(0);
   });
 });
 
 it('lässt Hunger und Durst auch im Schlaf tödlich werden', () => {
-  const result = sleepUntilMorning(state({ health: 10, hunger: 0, thirst: 0, dayElapsedSeconds: elapsedAt(0.9) }));
+  const result = sleepForEightHours(state({ health: 10, hunger: 0, thirst: 0, dayElapsedSeconds: elapsedAt(0.9) }));
   expect(result.slept).toBe(true);
   expect(result.state.health).toBe(0);
 });
 it('berechnet Brackwasserkrankheit nur für ihre verbleibende Dauer', () => {
   const original = state({ health: 50, hunger: 100, thirst: 100, dayElapsedSeconds: elapsedAt(0.9) });
-  const healthy = sleepUntilMorning(original);
-  const sick = sleepUntilMorning(original, 20);
+  const healthy = sleepForEightHours(original);
+  const sick = sleepForEightHours(original, 20);
   expect(healthy.state.health - sick.state.health).toBeCloseTo(8);
   expect(healthy.state.thirst - sick.state.thirst).toBeCloseTo(20 * SURVIVAL_RATES.thirstDrainPerSecond * 1.4);
 });
 it('lässt Tote nicht schlafen', () => {
-  expect(sleepUntilMorning(state({ health: 0, dayElapsedSeconds: elapsedAt(0.9) })).slept).toBe(false);
+  expect(sleepForEightHours(state({ health: 0, dayElapsedSeconds: elapsedAt(0.9) })).slept).toBe(false);
 });

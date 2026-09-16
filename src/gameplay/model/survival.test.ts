@@ -30,7 +30,7 @@ describe('survival model', () => {
       fastSwimStaminaDrainPerSecond: 12,
       staminaRegenPerSecond: 15,
       staminaRegenDelaySeconds: 1,
-      fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2),
+      fatigueGainPerSecond: 100 / (DAY_LENGTH_SECONDS * 2.5),
       healthRegenerationPerSecond: 0.1,
     });
     expect(HEALTH_REGENERATION_THRESHOLD).toBe(75);
@@ -123,11 +123,11 @@ describe('survival model', () => {
     expect(cold.stamina).toBe(35);
   });
 
-  it('builds fatigue over two days without sleep', () => {
+  it('baut Müdigkeit etwas langsamer über zweieinhalb Tage auf', () => {
     const afterOneDay = advanceSurvival(state({ hunger: 100, thirst: 100 }), DAY_LENGTH_SECONDS);
-    expect(afterOneDay.fatigue).toBeCloseTo(50);
-    const afterTwoDays = advanceSurvival(afterOneDay, DAY_LENGTH_SECONDS);
-    expect(afterTwoDays.fatigue).toBe(100);
+    expect(afterOneDay.fatigue).toBeCloseTo(40);
+    const fullyTired = advanceSurvival(afterOneDay, DAY_LENGTH_SECONDS * 1.5);
+    expect(fullyTired.fatigue).toBe(100);
   });
 
   it('regenerates stamina more slowly while exhausted', () => {
