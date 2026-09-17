@@ -3,6 +3,7 @@ import { GameApp } from "./GameApp";
 import { Inventory, createInitialSurvivalState, type SurvivalState } from "../gameplay/model";
 import type { BuildingState } from "../world/TropicalWorld";
 import type { ItemId } from "../data/items";
+import type { RuntimeSaveV1 } from "../save/runtimeSave";
 
 interface TestApp {
   inventory: Inventory;
@@ -12,6 +13,7 @@ interface TestApp {
   useInventoryItem(id: string): void;
   interactBuilding(id: string): void;
   respawn(): void;
+  restoreSave(save: RuntimeSaveV1): void;
 }
 function app(inventory: Inventory, building?: BuildingState): TestApp {
   return Object.assign(Object.create(GameApp.prototype) as TestApp, {
@@ -73,6 +75,42 @@ describe("Spielmechaniken im GameApp", () => {
     game.respawn();
     expect(game.survival.health).toBe(100);
     expect(game.survival.dayElapsedSeconds).toBe(510);
+  });
+  it("setzt beim Laden eines tödlichen Spielstands die Gesundheit auf 50", () => {
+    const game = app(new Inventory());
+    Object.assign(game, {
+      notebook: {}, preferredHotbarItem: null, equippedShirt: false, equippedBackpack: false,
+      brackwaterSicknessSeconds: 0, poisonSecondsRemaining: 0, poisonCausedDeath: false,
+      isBleeding: false, bleedingCausedDeath: false, previousFatigueLevel: null,
+      foodSpoilageAccumulator: 0, toolDurability: {}, day: 1, playedSeconds: 0,
+      yaw: 0, pitch: 0, spawnPoint: { x: 0, y: 0, z: 0 },
+      world: { restore: vi.fn() },
+    });
+    const save: RuntimeSaveV1 = {
+      schemaVersion: 1,
+      contentVersion: "0.1.0",
+      savedAtUnixMs: 1,
+      day: 2,
+      playedSeconds: 10,
+      player: {
+        position: { x: 1, y: 2, z: 3 },
+        yaw: 0,
+        pitch: 0,
+        spawnPoint: { x: 1, y: 2, z: 3 },
+        inventory: [],
+        survival: { ...createInitialSurvivalState(), health: 0 },
+        toolDurability: {},
+      },
+      world: {
+        removedEntityIds: [], removedEntityDays: {}, buildings: [], raft: null,
+        wreckLooted: false, sharkAlive: true, deathPacks: [], dynamicDrops: [],
+      },
+      deathPacks: [],
+    };
+
+    game.restoreSave(save);
+
+    expect(game.survival.health).toBe(50);
   });
 });
 

@@ -76,6 +76,7 @@ import { createBuildVisual, TropicalWorld, type LootStack } from "../world/Tropi
 type AppState = "boot" | "menu" | "loading" | "playing" | "paused" | "dead" | "fatal";
 
 const SETTINGS_KEY = "stranded2-settings-v1";
+const CONTINUE_HEALTH_AFTER_DEATH = 50;
 const DEFAULT_SETTINGS: SettingsViewModel = {
   quality: "high",
   audio: { master: 0.8, ambience: 0.72, effects: 0.82, ui: 0.7 },
@@ -1851,6 +1852,7 @@ export class GameApp {
     const savedFatigue = (save.player.survival as Partial<SurvivalState>).fatigue ?? 0;
     this.survival = {
       ...save.player.survival,
+      health: save.player.survival.health > 0 ? save.player.survival.health : CONTINUE_HEALTH_AFTER_DEATH,
       maxStamina: savedMaxStamina,
       fatigue: savedFatigue,
       stamina: Math.min(save.player.survival.stamina, savedMaxStamina),
